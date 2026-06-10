@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wordle Start Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Tokens ────────────────────────────────────────────────── */
+    :root {
+      --bg:        #111113;
+      --surface:   #1c1c1f;
+      --border:    #2e2e33;
+      --muted:     #52525b;
+      --text:      #e4e4e7;
+      --subtext:   #a1a1aa;
+
+      --green:     #538d4e;
+      --green-lit: #6aaf63;
+      --yellow:    #b59f3b;
+      --yellow-lit:#d4ba44;
+      --empty:     #3a3a3e;
+
+      --tile-size: 52px;
+      --gap: 5px;
+      --radius: 4px;
+
+      --font-display: 'Space Grotesk', sans-serif;
+      --font-body:    'Inter', sans-serif;
+    }
+
+    /* ── Reset ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    header {
+      width: 100%;
+      border-bottom: 1px solid var(--border);
+      padding: 20px 24px;
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    header h1 {
+      font-family: var(--font-display);
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--text);
+    }
+
+    header span {
+      font-size: 0.78rem;
+      color: var(--subtext);
+      font-weight: 400;
+    }
+
+    /* ── Main ───────────────────────────────────────────────────── */
+    main {
+      width: 100%;
+      max-width: 560px;
+      padding: 40px 24px 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+    }
+
+    /* ── Intro ──────────────────────────────────────────────────── */
+    .intro {
+      text-align: center;
+    }
+
+    .intro h2 {
+      font-family: var(--font-display);
+      font-size: 1.7rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+
+    .intro p {
+      font-size: 0.88rem;
+      color: var(--subtext);
+      line-height: 1.6;
+    }
+
+    /* ── Word rows (tile inputs) ────────────────────────────────── */
+    .word-rows {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .word-row {
+      display: flex;
+      gap: var(--gap);
+      align-items: center;
+    }
+
+    .word-row .row-label {
+      width: 16px;
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-align: right;
+      margin-right: 6px;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+    }
+
+    /* The 5 letter tiles */
+    .tiles {
+      display: flex;
+      gap: var(--gap);
+    }
+
+    .tile-input {
+      width: var(--tile-size);
+      height: var(--tile-size);
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      font-weight: 700;
+      text-align: center;
+      text-transform: uppercase;
+      caret-color: transparent;
+      outline: none;
+      transition: border-color 0.15s, background 0.15s;
+      -webkit-appearance: none;
+    }
+
+    .tile-input:focus {
+      border-color: var(--muted);
+    }
+
+    .tile-input.filled {
+      border-color: var(--text);
+    }
+
+    .tile-input.error {
+      border-color: #c0392b;
+      animation: shake 0.3s ease;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25%       { transform: translateX(-4px); }
+      75%       { transform: translateX(4px); }
+    }
+
+    /* Row add/remove controls */
+    .row-controls {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .btn-ghost {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--subtext);
+      font-family: var(--font-body);
+      font-size: 0.8rem;
+      padding: 6px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--muted);
+      color: var(--text);
+    }
+
+    .btn-ghost:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    /* ── Analyze button ─────────────────────────────────────────── */
+    .analyze-btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--green);
+      color: #fff;
+      font-family: var(--font-display);
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .analyze-btn:hover  { background: var(--green-lit); }
+    .analyze-btn:active { transform: scale(0.98); }
+
+    .analyze-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ── Error message ──────────────────────────────────────────── */
+    .error-msg {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #e07070;
+      min-height: 20px;
+    }
+
+    /* ── Results ────────────────────────────────────────────────── */
+    #results {
+      display: none;
+      flex-direction: column;
+      gap: 24px;
+      animation: fadeUp 0.3s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .results-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .results-header h3 {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--subtext);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .divider {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Stat cards */
+    .stat-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px 20px;
+    }
+
+    .stat-card .label {
+      font-size: 0.72rem;
+      color: var(--subtext);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+
+    .stat-card .value {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--text);
+    }
+
+    .stat-card .sub {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .stat-card.highlight .value { color: var(--green-lit); }
+
+    /* Hardest cases table */
+    .hardest-title {
+      font-size: 0.78rem;
+      color: var(--subtext);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 10px;
+    }
+
+    .bucket-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .bucket-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 14px;
+    }
+
+    .bucket-patterns {
+      display: flex;
+      gap: 10px;
+      flex: 1;
+    }
+
+    .mini-tiles {
+      display: flex;
+      gap: 3px;
+    }
+
+    .mini-tile {
+      width: 18px;
+      height: 18px;
+      border-radius: 2px;
+      background: var(--empty);
+    }
+
+    .mini-tile.green  { background: var(--green); }
+    .mini-tile.yellow { background: var(--yellow); }
+
+    .bucket-count {
+      font-family: var(--font-display);
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .bucket-pct {
+      font-size: 0.75rem;
+      color: var(--muted);
+      width: 38px;
+      text-align: right;
+    }
+
+    /* Word label above mini tiles */
+    .pattern-group {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      align-items: center;
+    }
+
+    .pattern-word-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Wordle Analyzer</h1>
+  <span>starting word optimizer</span>
+</header>
+
+<main>
+  <div class="intro">
+    <h2>How good is your opener?</h2>
+    <p>Enter 1–3 starting words. We'll tell you how many answers<br>they leave on average — and in the worst case.</p>
+  </div>
+
+  <!-- Tile input rows -->
+  <div class="word-rows" id="wordRows"></div>
+
+  <!-- Add / Remove row buttons -->
+  <div class="row-controls">
+    <button class="btn-ghost" id="btnRemove" onclick="removeRow()">− Remove word</button>
+    <button class="btn-ghost" id="btnAdd"    onclick="addRow()">+ Add word</button>
+  </div>
+
+  <!-- Error -->
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- Analyze -->
+  <button class="analyze-btn" id="analyzeBtn" onclick="analyze()">Analyze</button>
+
+  <!-- Results -->
+  <div id="results">
+    <div class="results-header">
+      <h3>Results</h3>
+      <div class="divider"></div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card highlight">
+        <div class="label">Avg. remaining</div>
+        <div class="value" id="statExpected">—</div>
+        <div class="sub">words left on average</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Worst case</div>
+        <div class="value" id="statWorst">—</div>
+        <div class="sub">words in hardest scenario</div>
+      </div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="label">Buckets used</div>
+        <div class="value" id="statBuckets">—</div>
+        <div class="sub" id="statBucketsSub">of possible patterns</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Answer pool</div>
+        <div class="value" id="statPool">—</div>
+        <div class="sub">words checked</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="hardest-title">Hardest outcomes</div>
+      <div class="bucket-list" id="bucketList"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────
+  let numRows = 1;
+  const MAX_ROWS = 3;
+
+  // ── Init ───────────────────────────────────────────────────────
+  function init() {
+    renderRows();
+  }
+
+  // ── Render tile rows ───────────────────────────────────────────
+  function renderRows() {
+    const container = document.getElementById('wordRows');
+    const existing  = container.querySelectorAll('.word-row').length;
+
+    // Add missing rows
+    while (container.querySelectorAll('.word-row').length < numRows) {
+      const rowIdx = container.querySelectorAll('.word-row').length;
+      const row = document.createElement('div');
+      row.className = 'word-row';
+      row.dataset.row = rowIdx;
+
+      const label = document.createElement('div');
+      label.className = 'row-label';
+      label.textContent = `W${rowIdx + 1}`;
+
+      const tiles = document.createElement('div');
+      tiles.className = 'tiles';
+
+      for (let i = 0; i < 5; i++) {
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.className = 'tile-input';
+        inp.maxLength = 1;
+        inp.dataset.row = rowIdx;
+        inp.dataset.col = i;
+        inp.autocomplete = 'off';
+        inp.spellcheck = false;
+        inp.addEventListener('input',   e => onTileInput(e, rowIdx, i));
+        inp.addEventListener('keydown', e => onTileKey(e, rowIdx, i));
+        inp.addEventListener('paste',   e => onPaste(e, rowIdx, i));
+        tiles.appendChild(inp);
+      }
+
+      row.appendChild(label);
+      row.appendChild(tiles);
+      container.appendChild(row);
+    }
+
+    // Remove extra rows
+    const rows = container.querySelectorAll('.word-row');
+    rows.forEach((r, idx) => {
+      r.style.display = idx < numRows ? 'flex' : 'none';
+    });
+
+    updateControls();
+
+    // Focus first tile of newest row
+    const newRowTiles = container.querySelectorAll(`.word-row[data-row="${numRows - 1}"] .tile-input`);
+    if (newRowTiles.length) newRowTiles[0].focus();
+  }
+
+  function updateControls() {
+    document.getElementById('btnAdd').disabled    = numRows >= MAX_ROWS;
+    document.getElementById('btnRemove').disabled = numRows <= 1;
+  }
+
+  function addRow() {
+    if (numRows < MAX_ROWS) { numRows++; renderRows(); }
+  }
+
+  function removeRow() {
+    if (numRows > 1) {
+      // Clear the row being removed
+      const container = document.getElementById('wordRows');
+      const tiles = container.querySelectorAll(`.word-row[data-row="${numRows - 1}"] .tile-input`);
+      tiles.forEach(t => { t.value = ''; t.classList.remove('filled', 'error'); });
+      numRows--;
+      renderRows();
+    }
+  }
+
+  // ── Tile input handling ────────────────────────────────────────
+  function onTileInput(e, row, col) {
+    const inp = e.target;
+    const val = inp.value.replace(/[^a-zA-Z]/g, '').slice(-1).toLowerCase();
+    inp.value = val.toUpperCase();
+    inp.classList.toggle('filled', val !== '');
+    clearError();
+
+    if (val !== '' && col < 4) {
+      focusTile(row, col + 1);
+    }
+  }
+
+  function onTileKey(e, row, col) {
+    if (e.key === 'Backspace') {
+      const inp = getTile(row, col);
+      if (inp.value === '' && col > 0) {
+        focusTile(row, col - 1);
+        const prev = getTile(row, col - 1);
+        prev.value = '';
+        prev.classList.remove('filled');
+      }
+    }
+    if (e.key === 'Enter') analyze();
+    if (e.key === 'ArrowRight' && col < 4) focusTile(row, col + 1);
+    if (e.key === 'ArrowLeft'  && col > 0) focusTile(row, col - 1);
+    if (e.key === 'ArrowDown'  && row < numRows - 1) focusTile(row + 1, col);
+    if (e.key === 'ArrowUp'    && row > 0)           focusTile(row - 1, col);
+  }
+
+  function onPaste(e, row, col) {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData)
+      .getData('text').replace(/[^a-zA-Z]/g, '').toLowerCase();
+    if (text.length === 5) {
+      for (let i = 0; i < 5; i++) {
+        const t = getTile(row, i);
+        t.value = text[i].toUpperCase();
+        t.classList.add('filled');
+      }
+      focusTile(row, 4);
+    }
+  }
+
+  function getTile(row, col) {
+    return document.querySelector(`.tile-input[data-row="${row}"][data-col="${col}"]`);
+  }
+
+  function focusTile(row, col) {
+    const t = getTile(row, col);
+    if (t) t.focus();
+  }
+
+  function getWord(row) {
+    let w = '';
+    for (let i = 0; i < 5; i++) {
+      const t = getTile(row, i);
+      w += (t ? t.value : '').toLowerCase();
+    }
+    return w;
+  }
+
+  // ── Error handling ─────────────────────────────────────────────
+  function showError(msg) {
+    document.getElementById('errorMsg').textContent = msg;
+  }
+
+  function clearError() {
+    document.getElementById('errorMsg').textContent = '';
+    document.querySelectorAll('.tile-input').forEach(t => t.classList.remove('error'));
+  }
+
+  function shakeRow(row) {
+    for (let i = 0; i < 5; i++) {
+      const t = getTile(row, i);
+      if (t) { t.classList.add('error'); setTimeout(() => t.classList.remove('error'), 400); }
+    }
+  }
+
+  // ── Analyze ────────────────────────────────────────────────────
+  async function analyze() {
+    clearError();
+    const btn = document.getElementById('analyzeBtn');
+
+    const words = [];
+    for (let r = 0; r < numRows; r++) {
+      const w = getWord(r);
+      if (w.length !== 5) {
+        showError(`Word ${r + 1} is incomplete.`);
+        shakeRow(r);
+        return;
+      }
+      words.push(w);
+    }
+
+    const dupes = words.filter((w, i) => words.indexOf(w) !== i);
+    if (dupes.length) {
+      showError(`Duplicate word: ${dupes[0].toUpperCase()}`);
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Analyzing…';
+
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ words }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(data.error || 'Something went wrong.');
+        // Try to identify which row caused the error
+        if (data.error) {
+          for (let r = 0; r < numRows; r++) {
+            if (data.error.toLowerCase().includes(getWord(r))) shakeRow(r);
+          }
+        }
+        return;
+      }
+
+      renderResults(data);
+
+    } catch (err) {
+      showError('Network error — is the server running?');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Analyze';
+    }
+  }
+
+  // ── Render results ─────────────────────────────────────────────
+  function renderResults(data) {
+    document.getElementById('statExpected').textContent = data.expected_remaining.toFixed(2);
+    document.getElementById('statWorst').textContent    = data.worst_case;
+    document.getElementById('statBuckets').textContent  = data.bucket_count.toLocaleString();
+    document.getElementById('statBucketsSub').textContent =
+      `of ${Math.pow(243, data.words.length).toLocaleString()} possible`;
+    document.getElementById('statPool').textContent = data.total_answers.toLocaleString();
+
+    // Hardest buckets
+    const list = document.getElementById('bucketList');
+    list.innerHTML = '';
+    for (const bucket of data.hardest_buckets) {
+      const row = document.createElement('div');
+      row.className = 'bucket-row';
+
+      const patternsDiv = document.createElement('div');
+      patternsDiv.className = 'bucket-patterns';
+
+      bucket.patterns.forEach((trits, wi) => {
+        const group = document.createElement('div');
+        group.className = 'pattern-group';
+
+        const wordLabel = document.createElement('div');
+        wordLabel.className = 'pattern-word-label';
+        wordLabel.textContent = data.words[wi].toUpperCase();
+
+        const miniTiles = document.createElement('div');
+        miniTiles.className = 'mini-tiles';
+        trits.forEach(trit => {
+          const tile = document.createElement('div');
+          tile.className = 'mini-tile' + (trit === 2 ? ' green' : trit === 1 ? ' yellow' : '');
+          miniTiles.appendChild(tile);
+        });
+
+        group.appendChild(wordLabel);
+        group.appendChild(miniTiles);
+        patternsDiv.appendChild(group);
+      });
+
+      const count = document.createElement('div');
+      count.className = 'bucket-count';
+      count.textContent = `${bucket.count} words`;
+
+      const pct = document.createElement('div');
+      pct.className = 'bucket-pct';
+      pct.textContent = `${bucket.pct}%`;
+
+      row.appendChild(patternsDiv);
+      row.appendChild(count);
+      row.appendChild(pct);
+      list.appendChild(row);
+    }
+
+    const resultsEl = document.getElementById('results');
+    resultsEl.style.display = 'flex';
+    resultsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  init();
+</script>
+</body>
+</html>
