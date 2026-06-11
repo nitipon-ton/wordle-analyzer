@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Wordle Start Analyzer</title>
+  <title>Wordle Toolkit</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2 family=Inter:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
   <style>
-    /* ── Tokens ────────────────────────────────────────────────── */
+    /* ── Design Tokens ────────────────────────────────────────── */
     :root {
       --bg:        #111113;
       --surface:   #1c1c1f;
@@ -31,7 +31,7 @@
       --font-body:    'Inter', sans-serif;
     }
 
-    /* ── Reset ─────────────────────────────────────────────────── */
+    /* ── Base Reset ───────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
@@ -44,41 +44,90 @@
       align-items: center;
     }
 
-    /* ── Header ─────────────────────────────────────────────────── */
+    /* ── Tabbed Layout Header ─────────────────────────────────── */
     header {
       width: 100%;
+      max-width: 650px;
       border-bottom: 1px solid var(--border);
-      padding: 20px 24px;
+      padding: 24px;
       display: flex;
-      align-items: baseline;
-      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
     }
 
-    header h1 {
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .brand h1 {
       font-family: var(--font-display);
-      font-size: 1.25rem;
+      font-size: 1.35rem;
       font-weight: 700;
       letter-spacing: -0.01em;
       color: var(--text);
     }
 
-    header span {
+    .brand span {
       font-size: 0.78rem;
       color: var(--subtext);
-      font-weight: 400;
     }
 
-    /* ── Main ───────────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      gap: 8px;
+    }
+
+    .tab-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--subtext);
+      font-family: var(--font-body);
+      font-size: 0.8rem;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .tab-btn:hover {
+      border-color: var(--muted);
+      color: var(--text);
+    }
+
+    .tab-btn.active {
+      background: var(--surface);
+      border-color: var(--text);
+      color: var(--text);
+    }
+
+    /* ── Main View Wrap ────────────────────────────────────────── */
     main {
       width: 100%;
-      max-width: 560px;
+      max-width: 580px;
       padding: 40px 24px 80px;
-      display: flex;
-      flex-direction: column;
-      gap: 36px;
     }
 
-    /* ── Intro ──────────────────────────────────────────────────── */
+    .page-content {
+      display: none;
+      flex-direction: column;
+      gap: 36px;
+      animation: fadeIn 0.2s ease-in-out;
+    }
+
+    .page-content.active {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
     .intro {
       text-align: center;
     }
@@ -98,7 +147,7 @@
       line-height: 1.6;
     }
 
-    /* ── Word rows (tile inputs) ────────────────────────────────── */
+    /* ── Grid/Row Form Factors ────────────────────────────────── */
     .word-rows {
       display: flex;
       flex-direction: column;
@@ -113,16 +162,15 @@
     }
 
     .word-row .row-label {
-      width: 16px;
+      width: 55px;
       font-size: 0.7rem;
       color: var(--muted);
       text-align: right;
       margin-right: 6px;
-      font-weight: 500;
+      font-weight: 600;
       letter-spacing: 0.05em;
     }
 
-    /* The 5 letter tiles */
     .tiles {
       display: flex;
       gap: var(--gap);
@@ -143,16 +191,14 @@
       caret-color: transparent;
       outline: none;
       transition: border-color 0.15s, background 0.15s;
-      -webkit-appearance: none;
     }
 
-    .tile-input:focus {
-      border-color: var(--muted);
-    }
-
-    .tile-input.filled {
-      border-color: var(--text);
-    }
+    /* Clickable Tile Style Variants */
+    .tile-input.clickable-tile { cursor: pointer; }
+    .tile-input.state-0 { background: var(--surface); border-color: var(--border); }
+    .tile-input.state-1 { background: var(--yellow); border-color: var(--yellow); color: #fff; }
+    .tile-input.state-2 { background: var(--green); border-color: var(--green); color: #fff; }
+    .tile-input.filled:not(.state-1):not(.state-2) { border-color: var(--text); }
 
     .tile-input.error {
       border-color: #c0392b;
@@ -165,10 +211,17 @@
       75%       { transform: translateX(4px); }
     }
 
-    /* Row add/remove controls */
-    .row-controls {
+    .hint-text {
+      text-align: center;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    /* ── Interactive Controls ────────────────────────────────── */
+    .row-controls, .action-controls {
       display: flex;
-      gap: 8px;
+      gap: 12px;
       justify-content: center;
     }
 
@@ -194,7 +247,6 @@
       cursor: not-allowed;
     }
 
-    /* ── Analyze button ─────────────────────────────────────────── */
     .analyze-btn {
       width: 100%;
       padding: 14px;
@@ -213,14 +265,8 @@
 
     .analyze-btn:hover  { background: var(--green-lit); }
     .analyze-btn:active { transform: scale(0.98); }
+    .analyze-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
-    .analyze-btn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    /* ── Error message ──────────────────────────────────────────── */
     .error-msg {
       text-align: center;
       font-size: 0.85rem;
@@ -228,8 +274,8 @@
       min-height: 20px;
     }
 
-    /* ── Results ────────────────────────────────────────────────── */
-    #results {
+    /* ── Content Results Layout ───────────────────────────────── */
+    .results-section {
       display: none;
       flex-direction: column;
       gap: 24px;
@@ -249,218 +295,464 @@
 
     .results-header h3 {
       font-family: var(--font-display);
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: 700;
       color: var(--subtext);
       text-transform: uppercase;
       letter-spacing: 0.08em;
     }
 
-    .divider {
-      flex: 1;
-      height: 1px;
-      background: var(--border);
-    }
+    .divider { flex: 1; height: 1px; background: var(--border); }
 
-    /* Stat cards */
-    .stat-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    .stat-card {
+    /* History list item specifications */
+    .history-list { display: flex; flex-direction: column; gap: 8px; }
+    .history-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 18px 20px;
+      padding: 10px 16px;
+      border-radius: 6px;
     }
-
-    .stat-card .label {
-      font-size: 0.72rem;
-      color: var(--subtext);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 6px;
-    }
-
-    .stat-card .value {
+    .history-word-label {
       font-family: var(--font-display);
-      font-size: 2rem;
+      font-size: 1.15rem;
       font-weight: 700;
-      line-height: 1;
-      color: var(--text);
-    }
-
-    .stat-card .sub {
-      font-size: 0.75rem;
-      color: var(--muted);
-      margin-top: 4px;
-    }
-
-    .stat-card.highlight .value { color: var(--green-lit); }
-
-    /* Hardest cases table */
-    .hardest-title {
-      font-size: 0.78rem;
-      color: var(--subtext);
+      letter-spacing: 0.05em;
       text-transform: uppercase;
-      letter-spacing: 0.07em;
-      margin-bottom: 10px;
     }
+    .mini-history-tiles { display: flex; gap: 4px; }
+    .mini-history-tile { width: 16px; height: 16px; border-radius: 2px; }
+    .mini-history-tile.bg-0 { background: var(--empty); }
+    .mini-history-tile.bg-1 { background: var(--yellow); }
+    .mini-history-tile.bg-2 { background: var(--green); }
 
-    .bucket-list {
+    /* Chip answer pools */
+    .chip-pool {
       display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .bucket-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: var(--surface);
+      flex-wrap: wrap;
+      gap: 6px;
+      max-height: 140px;
+      overflow-y: auto;
+      padding: 12px;
+      background: #0b0b0c;
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 10px 14px;
     }
-
-    .bucket-patterns {
-      display: flex;
-      gap: 10px;
-      flex: 1;
-    }
-
-    .mini-tiles {
-      display: flex;
-      gap: 3px;
-    }
-
-    .mini-tile {
-      width: 18px;
-      height: 18px;
-      border-radius: 2px;
-      background: var(--empty);
-    }
-
-    .mini-tile.green  { background: var(--green); }
-    .mini-tile.yellow { background: var(--yellow); }
-
-    .bucket-count {
-      font-family: var(--font-display);
-      font-size: 0.9rem;
-      font-weight: 700;
+    .chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
       color: var(--text);
-      white-space: nowrap;
+      font-family: var(--font-display);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.04em;
     }
 
-    .bucket-pct {
-      font-size: 0.75rem;
-      color: var(--muted);
-      width: 38px;
-      text-align: right;
+    /* Structured Data Tables */
+    .table-container {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--surface);
     }
-
-    /* Word label above mini tiles */
-    .pattern-group {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      align-items: center;
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      text-align: left;
     }
-
-    .pattern-word-label {
-      font-size: 0.6rem;
-      letter-spacing: 0.05em;
-      color: var(--muted);
+    .data-table th, .data-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+    .data-table th {
+      background: #151518;
+      color: var(--subtext);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 600;
+    }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table td.word-cell {
+      font-family: var(--font-display);
+      font-weight: 700;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
     }
+    .data-table td.check-cell { color: var(--green-lit); text-align: center; font-weight: bold; }
+
+    /* Stat cards */
+    .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; }
+    .stat-card .label { font-size: 0.72rem; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+    .stat-card .value { font-family: var(--font-display); font-size: 2rem; font-weight: 700; line-height: 1; color: var(--text); }
+    .stat-card .sub { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+    .stat-card.highlight .value { color: var(--green-lit); }
+
+    .hardest-title { font-size: 0.78rem; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px; }
+    .bucket-list { display: flex; flex-direction: column; gap: 8px; }
+    .bucket-row { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; }
+    .bucket-patterns { display: flex; gap: 10px; flex: 1; }
+    .mini-tiles { display: flex; gap: 3px; }
+    .mini-tile { width: 18px; height: 18px; border-radius: 2px; background: var(--empty); }
+    .mini-tile.green  { background: var(--green); }
+    .mini-tile.yellow { background: var(--yellow); }
+    .bucket-count { font-family: var(--font-display); font-size: 0.9rem; font-weight: 700; color: var(--text); white-space: nowrap; }
+    .bucket-pct { font-size: 0.75rem; color: var(--muted); width: 38px; text-align: right; }
+    .pattern-group { display: flex; flex-direction: column; gap: 3px; align-items: center; }
+    .pattern-word-label { font-size: 0.6rem; letter-spacing: 0.05em; color: var(--muted); text-transform: uppercase; }
   </style>
 </head>
 <body>
 
 <header>
-  <h1>Wordle Analyzer</h1>
-  <span>starting word optimizer</span>
+  <div class="brand">
+    <h1>Wordle Toolkit</h1>
+    <span>solver workspace</span>
+  </div>
+  <div class="tabs">
+    <button id="tabFinder" class="tab-btn active" onclick="switchTab('finder')">Next Word Finder</button>
+    <button id="tabAnalyzer" class="tab-btn" onclick="switchTab('analyzer')">Opening Analyzer</button>
+  </div>
 </header>
 
 <main>
-  <div class="intro">
-    <h2>How good is your opener?</h2>
-    <p>Enter 1-3 starting words.<br>We'll tell you how many possible answers they leave on average and in the worst case.<br>Lower is better. It means you have filtered out more possibilities.</p>
+  <div id="finderPage" class="page-content active">
+    <div class="intro">
+      <h2>Interactive Next Guess Solver</h2>
+      <p>Enter your played guess words below. Click individual character tiles to match the color response returned by Wordle.</p>
+    </div>
+
+    <div id="finderHistorySection" style="display: none;">
+      <div class="results-header" style="margin-bottom: 12px;">
+        <h3>Guess Sequences Added</h3>
+        <div class="divider"></div>
+      </div>
+      <div id="finderHistoryList" class="history-list"></div>
+    </div>
+
+    <div class="word-rows">
+      <div class="word-row">
+        <div class="row-label">INPUT</div>
+        <div class="tiles" id="currentFinderTiles"></div>
+      </div>
+      <div class="hint-text">Type a word, then click color tiles to switch: ⬛ → 🟨 → 🟩</div>
+    </div>
+
+    <div class="action-controls">
+      <button class="btn-ghost" onclick="resetFinder()">Reset Matrix</button>
+      <button class="analyze-btn" id="btnSubmitFinder" onclick="submitFinderGuess()" style="width: 220px;">Add & Analyze</button>
+    </div>
+
+    <div class="error-msg" id="finderErrorMsg"></div>
+
+    <div id="finderResults" class="results-section">
+      <div>
+        <div class="results-header" style="margin-bottom: 12px;">
+          <h3 id="remainingCountLabel">Surviving Answers (0)</h3>
+          <div class="divider"></div>
+        </div>
+        <div id="remainingWordsPool" class="chip-pool"></div>
+      </div>
+
+      <div>
+        <div class="results-header" style="margin-bottom: 12px;">
+          <h3>Top 30 Mathematical Choices (Worst Case Minimization)</h3>
+          <div class="divider"></div>
+        </div>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 60px;">Rank</th>
+                <th>Word</th>
+                <th style="text-align: right;">Worst Case Left</th>
+                <th style="text-align: right;">Expected Left</th>
+                <th style="text-align: center; width: 90px;">In Pool</th>
+              </tr>
+            </thead>
+            <tbody id="finderRecommendationsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- Tile input rows -->
-  <div class="word-rows" id="wordRows"></div>
-
-  <!-- Add / Remove row buttons -->
-  <div class="row-controls">
-    <button class="btn-ghost" id="btnRemove" onclick="removeRow()">− Remove word</button>
-    <button class="btn-ghost" id="btnAdd"    onclick="addRow()">+ Add word</button>
-  </div>
-
-  <!-- Error -->
-  <div class="error-msg" id="errorMsg"></div>
-
-  <!-- Analyze -->
-  <button class="analyze-btn" id="analyzeBtn" onclick="analyze()">Analyze</button>
-
-  <!-- Results -->
-  <div id="results">
-    <div class="results-header">
-      <h3>Results</h3>
-      <div class="divider"></div>
+  <div id="analyzerPage" class="page-content">
+    <div class="intro">
+      <h2>How good is your opener?</h2>
+      <p>Enter 1-3 starting words.<br>We'll tell you how many possible answers they leave on average and in the worst case.</p>
     </div>
 
-    <div class="stat-row">
-      <div class="stat-card highlight">
-        <div class="label">Avg. remaining</div>
-        <div class="value" id="statExpected">—</div>
-        <div class="sub">words left on average</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Worst case</div>
-        <div class="value" id="statWorst">—</div>
-        <div class="sub">words in hardest scenario</div>
-      </div>
+    <div class="word-rows" id="wordRows"></div>
+
+    <div class="row-controls">
+      <button class="btn-ghost" id="btnRemove" onclick="removeRow()">− Remove word</button>
+      <button class="btn-ghost" id="btnAdd"    onclick="addRow()">+ Add word</button>
     </div>
 
-    <div class="stat-row">
-      <div class="stat-card">
-        <div class="label">Buckets used</div>
-        <div class="value" id="statBuckets">—</div>
-        <div class="sub" id="statBucketsSub">of possible patterns</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Answer pool</div>
-        <div class="value" id="statPool">—</div>
-        <div class="sub">words checked</div>
-      </div>
-    </div>
+    <div class="error-msg" id="errorMsg"></div>
 
-    <div>
-      <div class="hardest-title">Hardest outcomes</div>
-      <div class="bucket-list" id="bucketList"></div>
+    <button class="analyze-btn" id="analyzeBtn" onclick="analyze()">Analyze</button>
+
+    <div id="results" class="results-section">
+      <div class="results-header">
+        <h3>Results</h3>
+        <div class="divider"></div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-card highlight">
+          <div class="label">Avg. remaining</div>
+          <div class="value" id="statExpected">—</div>
+          <div class="sub">words left on average</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Worst case</div>
+          <div class="value" id="statWorst">—</div>
+          <div class="sub">words in hardest scenario</div>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-card">
+          <div class="label">Buckets used</div>
+          <div class="value" id="statBuckets">—</div>
+          <div class="sub" id="statBucketsSub">of possible patterns</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Answer pool</div>
+          <div class="value" id="statPool">—</div>
+          <div class="sub">words checked</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="hardest-title">Hardest outcomes</div>
+        <div class="bucket-list" id="bucketList"></div>
+      </div>
     </div>
   </div>
 </main>
 
 <script>
-  // ── State ──────────────────────────────────────────────────────
+  // ── State Context Frameworks ──────────────────────────────────
+  let activeTab = 'finder';
+  let finderHistory = [];
+  let currentFinderPattern = [0, 0, 0, 0, 0];
+
   let numRows = 1;
   const MAX_ROWS = 3;
 
-  // ── Init ───────────────────────────────────────────────────────
   function init() {
+    setupFinderInputTiles();
     renderRows();
   }
 
-  // ── Render tile rows ───────────────────────────────────────────
+  function switchTab(tab) {
+    activeTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
+
+    if (tab === 'finder') {
+      document.getElementById('tabFinder').classList.add('active');
+      document.getElementById('finderPage').classList.add('active');
+    } else {
+      document.getElementById('tabAnalyzer').classList.add('active');
+      document.getElementById('analyzerPage').classList.add('active');
+    }
+  }
+
+  // ── Tab 1 Implementation: Next Word Finder Engine ───────────
+  function setupFinderInputTiles() {
+    const container = document.getElementById('currentFinderTiles');
+    container.innerHTML = '';
+    currentFinderPattern = [0, 0, 0, 0, 0];
+
+    for (let i = 0; i < 5; i++) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'tile-input clickable-tile state-0';
+      input.maxLength = 1;
+      input.dataset.col = i;
+      input.autocomplete = 'off';
+      input.spellcheck = false;
+
+      input.addEventListener('input', e => {
+        const val = e.target.value.replace(/[^a-zA-Z]/g, '').toUpperCase();
+        e.target.value = val;
+        e.target.classList.toggle('filled', val !== '');
+        if (val !== '' && i < 4) {
+          container.children[i + 1].focus();
+        }
+      });
+
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Backspace' && e.target.value === '' && i > 0) {
+          const prev = container.children[i - 1];
+          prev.focus();
+          prev.value = '';
+          prev.classList.remove('filled');
+        }
+        if (e.key === 'ArrowRight' && i < 4) container.children[i + 1].focus();
+        if (e.key === 'ArrowLeft'  && i > 0) container.children[i - 1].focus();
+        if (e.key === 'Enter') submitFinderGuess();
+      });
+
+      input.addEventListener('click', e => {
+        let current = currentFinderPattern[i];
+        let next = (current + 1) % 3;
+        currentFinderPattern[i] = next;
+
+        e.target.classList.remove(`state-${current}`);
+        e.target.classList.add(`state-${next}`);
+      });
+
+      container.appendChild(input);
+    }
+  }
+
+  async function submitFinderGuess() {
+    const errEl = document.getElementById('finderErrorMsg');
+    errEl.textContent = '';
+    
+    const container = document.getElementById('currentFinderTiles');
+    let word = '';
+    for (let i = 0; i < 5; i++) {
+      word += container.children[i].value.toLowerCase();
+    }
+
+    if (word.length !== 5) {
+      errEl.textContent = 'Please enter a complete 5-letter word.';
+      return;
+    }
+
+    if (finderHistory.some(h => h.word === word)) {
+      errEl.textContent = 'This word has already been verified in the play history.';
+      return;
+    }
+
+    const currentTurn = { word, pattern: [...currentFinderPattern] };
+    const btn = document.getElementById('btnSubmitFinder');
+    btn.disabled = true;
+    btn.textContent = 'Calculating...';
+
+    try {
+      const res = await fetch('/api/next_word', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ history: [...finderHistory, currentTurn] })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        errEl.textContent = data.error || 'Server calculation exception.';
+        return;
+      }
+
+      finderHistory.push(currentTurn);
+      renderFinderHistoryElements();
+      renderFinderResultsDisplay(data);
+
+      setupFinderInputTiles();
+      container.children[0].focus();
+
+    } catch (err) {
+      errEl.textContent = 'Network communication failure context.';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Add & Analyze';
+    }
+  }
+
+  function renderFinderHistoryElements() {
+    const section = document.getElementById('finderHistorySection');
+    const list = document.getElementById('finderHistoryList');
+    list.innerHTML = '';
+
+    if (finderHistory.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = 'block';
+
+    finderHistory.forEach(turn => {
+      const row = document.createElement('div');
+      row.className = 'history-row';
+
+      const label = document.createElement('div');
+      label.className = 'history-word-label';
+      label.textContent = turn.word;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'mini-history-tiles';
+
+      turn.pattern.forEach(p => {
+        const miniTile = document.createElement('div');
+        miniTile.className = `mini-history-tile bg-${p}`;
+        wrapper.appendChild(miniTile);
+      });
+
+      row.appendChild(label);
+      row.appendChild(wrapper);
+      list.appendChild(row);
+    });
+  }
+
+  function renderFinderResultsDisplay(data) {
+    const resultsArea = document.getElementById('finderResults');
+    resultsArea.style.display = 'flex';
+
+    document.getElementById('remainingCountLabel').textContent = `Surviving Answers (${data.remaining_count})`;
+
+    const pool = document.getElementById('remainingWordsPool');
+    pool.innerHTML = '';
+    if (data.remaining_words.length === 0) {
+      pool.innerHTML = '<div style="color: var(--muted); font-size: 0.85rem;">No legal remaining solutions match coordinates.</div>';
+    } else {
+      data.remaining_words.forEach(w => {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.textContent = w.toUpperCase();
+        pool.appendChild(chip);
+      });
+    }
+
+    const tbody = document.getElementById('finderRecommendationsBody');
+    tbody.innerHTML = '';
+
+    if (!data.top_guesses || data.top_guesses.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--muted);">No values returned.</td></tr>';
+    } else {
+      data.top_guesses.forEach((rec, idx) => {
+        const tr = document.createElement('tr');
+        
+        const rTd = document.createElement('td'); rTd.textContent = idx + 1;
+        const wTd = document.createElement('td'); wTd.className = 'word-cell'; wTd.textContent = rec.word;
+        const worstTd = document.createElement('td'); worstTd.style.textAlign = 'right'; worstTd.textContent = rec.worst;
+        const expTd = document.createElement('td'); expTd.style.textAlign = 'right'; expTd.textContent = rec.expected.toFixed(2);
+        const pTd = document.createElement('td'); pTd.className = 'check-cell'; pTd.textContent = rec.in_pool ? '✓' : '';
+
+        tr.append(rTd, wTd, worstTd, expTd, pTd);
+        tbody.appendChild(tr);
+      });
+    }
+    resultsArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function resetFinder() {
+    finderHistory = [];
+    document.getElementById('finderErrorMsg').textContent = '';
+    document.getElementById('finderResults').style.display = 'none';
+    renderFinderHistoryElements();
+    setupFinderInputTiles();
+  }
+
+  // ── Tab 2 Implementation: Opening Analyzer Frameworks ──────────
   function renderRows() {
     const container = document.getElementById('wordRows');
-    const existing  = container.querySelectorAll('.word-row').length;
-
-    // Add missing rows
     while (container.querySelectorAll('.word-row').length < numRows) {
       const rowIdx = container.querySelectorAll('.word-row').length;
       const row = document.createElement('div');
@@ -469,7 +761,7 @@
 
       const label = document.createElement('div');
       label.className = 'row-label';
-      label.textContent = `W${rowIdx + 1}`;
+      label.textContent = `WORD ${rowIdx + 1}`;
 
       const tiles = document.createElement('div');
       tiles.className = 'tiles';
@@ -483,148 +775,73 @@
         inp.dataset.col = i;
         inp.autocomplete = 'off';
         inp.spellcheck = false;
-        inp.addEventListener('input',   e => onTileInput(e, rowIdx, i));
-        inp.addEventListener('keydown', e => onTileKey(e, rowIdx, i));
-        inp.addEventListener('paste',   e => onPaste(e, rowIdx, i));
+        inp.addEventListener('input',   e => {
+          const val = e.target.value.replace(/[^a-zA-Z]/g, '').toLowerCase();
+          e.target.value = val.toUpperCase();
+          e.target.classList.toggle('filled', val !== '');
+          clearError();
+          if (val !== '' && i < 4) container.querySelectorAll(`.word-row[data-row="${rowIdx}"] .tile-input`)[i + 1].focus();
+        });
+        inp.addEventListener('keydown', e => {
+          if (e.key === 'Backspace' && e.target.value === '' && i > 0) {
+            const arr = container.querySelectorAll(`.word-row[data-row="${rowIdx}"] .tile-input`);
+            arr[i - 1].focus();
+            arr[i - 1].value = '';
+            arr[i - 1].classList.remove('filled');
+          }
+          if (e.key === 'Enter') analyze();
+        });
         tiles.appendChild(inp);
       }
-
-      row.appendChild(label);
-      row.appendChild(tiles);
+      row.append(label, tiles);
       container.appendChild(row);
     }
 
-    // Remove extra rows
-    const rows = container.querySelectorAll('.word-row');
-    rows.forEach((r, idx) => {
+    container.querySelectorAll('.word-row').forEach((r, idx) => {
       r.style.display = idx < numRows ? 'flex' : 'none';
     });
 
-    updateControls();
-
-    // Focus first tile of newest row
-    const newRowTiles = container.querySelectorAll(`.word-row[data-row="${numRows - 1}"] .tile-input`);
-    if (newRowTiles.length) newRowTiles[0].focus();
-  }
-
-  function updateControls() {
     document.getElementById('btnAdd').disabled    = numRows >= MAX_ROWS;
     document.getElementById('btnRemove').disabled = numRows <= 1;
   }
 
-  function addRow() {
-    if (numRows < MAX_ROWS) { numRows++; renderRows(); }
-  }
-
+  function addRow() { if (numRows < MAX_ROWS) { numRows++; renderRows(); } }
   function removeRow() {
     if (numRows > 1) {
-      // Clear the row being removed
-      const container = document.getElementById('wordRows');
-      const tiles = container.querySelectorAll(`.word-row[data-row="${numRows - 1}"] .tile-input`);
+      const tiles = document.querySelectorAll(`.word-row[data-row="${numRows - 1}"] .tile-input`);
       tiles.forEach(t => { t.value = ''; t.classList.remove('filled', 'error'); });
-      numRows--;
-      renderRows();
+      numRows--; renderRows();
     }
   }
 
-  // ── Tile input handling ────────────────────────────────────────
-  function onTileInput(e, row, col) {
-    const inp = e.target;
-    const val = inp.value.replace(/[^a-zA-Z]/g, '').slice(-1).toLowerCase();
-    inp.value = val.toUpperCase();
-    inp.classList.toggle('filled', val !== '');
-    clearError();
-
-    if (val !== '' && col < 4) {
-      focusTile(row, col + 1);
-    }
+  function showError(msg) { document.getElementById('errorMsg').textContent = msg; }
+  function clearError() {
+    document.getElementById('errorMsg').textContent = '';
+    document.querySelectorAll('#analyzerPage .tile-input').forEach(t => t.classList.remove('error'));
   }
 
-  function onTileKey(e, row, col) {
-    if (e.key === 'Backspace') {
-      const inp = getTile(row, col);
-      if (inp.value === '' && col > 0) {
-        focusTile(row, col - 1);
-        const prev = getTile(row, col - 1);
-        prev.value = '';
-        prev.classList.remove('filled');
-      }
-    }
-    if (e.key === 'Enter') analyze();
-    if (e.key === 'ArrowRight' && col < 4) focusTile(row, col + 1);
-    if (e.key === 'ArrowLeft'  && col > 0) focusTile(row, col - 1);
-    if (e.key === 'ArrowDown'  && row < numRows - 1) focusTile(row + 1, col);
-    if (e.key === 'ArrowUp'    && row > 0)           focusTile(row - 1, col);
-  }
-
-  function onPaste(e, row, col) {
-    e.preventDefault();
-    const text = (e.clipboardData || window.clipboardData)
-      .getData('text').replace(/[^a-zA-Z]/g, '').toLowerCase();
-    if (text.length === 5) {
-      for (let i = 0; i < 5; i++) {
-        const t = getTile(row, i);
-        t.value = text[i].toUpperCase();
-        t.classList.add('filled');
-      }
-      focusTile(row, 4);
-    }
-  }
-
-  function getTile(row, col) {
-    return document.querySelector(`.tile-input[data-row="${row}"][data-col="${col}"]`);
-  }
-
-  function focusTile(row, col) {
-    const t = getTile(row, col);
-    if (t) t.focus();
-  }
-
-  function getWord(row) {
+  function getAnalyzerWord(row) {
     let w = '';
-    for (let i = 0; i < 5; i++) {
-      const t = getTile(row, i);
-      w += (t ? t.value : '').toLowerCase();
-    }
+    document.querySelectorAll(`.word-row[data-row="${row}"] .tile-input`).forEach(t => w += t.value.toLowerCase());
     return w;
   }
 
-  // ── Error handling ─────────────────────────────────────────────
-  function showError(msg) {
-    document.getElementById('errorMsg').textContent = msg;
-  }
-
-  function clearError() {
-    document.getElementById('errorMsg').textContent = '';
-    document.querySelectorAll('.tile-input').forEach(t => t.classList.remove('error'));
-  }
-
-  function shakeRow(row) {
-    for (let i = 0; i < 5; i++) {
-      const t = getTile(row, i);
-      if (t) { t.classList.add('error'); setTimeout(() => t.classList.remove('error'), 400); }
-    }
-  }
-
-  // ── Analyze ────────────────────────────────────────────────────
   async function analyze() {
     clearError();
     const btn = document.getElementById('analyzeBtn');
-
     const words = [];
+
     for (let r = 0; r < numRows; r++) {
-      const w = getWord(r);
+      const w = getAnalyzerWord(r);
       if (w.length !== 5) {
         showError(`Word ${r + 1} is incomplete.`);
-        shakeRow(r);
         return;
       }
       words.push(w);
     }
 
-    const dupes = words.filter((w, i) => words.indexOf(w) !== i);
-    if (dupes.length) {
-      showError(`Duplicate word: ${dupes[0].toUpperCase()}`);
+    if (words.filter((w, i) => words.indexOf(w) !== i).length) {
+      showError('Duplicate words found.');
       return;
     }
 
@@ -637,56 +854,39 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ words }),
       });
-
       const data = await res.json();
-
-      if (!res.ok) {
-        showError(data.error || 'Something went wrong.');
-        // Try to identify which row caused the error
-        if (data.error) {
-          for (let r = 0; r < numRows; r++) {
-            if (data.error.toLowerCase().includes(getWord(r))) shakeRow(r);
-          }
-        }
-        return;
-      }
-
-      renderResults(data);
-
+      if (!res.ok) { showError(data.error || 'API Processing Failure'); return; }
+      renderAnalyzerResults(data);
     } catch (err) {
-      showError('Network error — is the server running?');
+      showError('Failed connection infrastructure to server backend.');
     } finally {
       btn.disabled = false;
       btn.textContent = 'Analyze';
     }
   }
 
-  // ── Render results ─────────────────────────────────────────────
-  function renderResults(data) {
+  function renderAnalyzerResults(data) {
     document.getElementById('statExpected').textContent = data.expected_remaining.toFixed(2);
     document.getElementById('statWorst').textContent    = data.worst_case;
     document.getElementById('statBuckets').textContent  = data.bucket_count.toLocaleString();
-    document.getElementById('statBucketsSub').textContent =
-      `of ${Math.pow(243, data.words.length).toLocaleString()} possible`;
+    document.getElementById('statBucketsSub').textContent = `of ${Math.pow(243, data.words.length).toLocaleString()} possible`;
     document.getElementById('statPool').textContent = data.total_answers.toLocaleString();
 
-    // Hardest buckets
     const list = document.getElementById('bucketList');
     list.innerHTML = '';
-    for (const bucket of data.hardest_buckets) {
+    data.hardest_buckets.forEach(b => {
       const row = document.createElement('div');
       row.className = 'bucket-row';
 
       const patternsDiv = document.createElement('div');
       patternsDiv.className = 'bucket-patterns';
 
-      bucket.patterns.forEach((trits, wi) => {
+      b.patterns.forEach((trits, wi) => {
         const group = document.createElement('div');
         group.className = 'pattern-group';
-
-        const wordLabel = document.createElement('div');
-        wordLabel.className = 'pattern-word-label';
-        wordLabel.textContent = data.words[wi].toUpperCase();
+        const label = document.createElement('div');
+        label.className = 'pattern-word-label';
+        label.textContent = data.words[wi].toUpperCase();
 
         const miniTiles = document.createElement('div');
         miniTiles.className = 'mini-tiles';
@@ -695,29 +895,19 @@
           tile.className = 'mini-tile' + (trit === 2 ? ' green' : trit === 1 ? ' yellow' : '');
           miniTiles.appendChild(tile);
         });
-
-        group.appendChild(wordLabel);
-        group.appendChild(miniTiles);
+        group.append(label, miniTiles);
         patternsDiv.appendChild(group);
       });
 
-      const count = document.createElement('div');
-      count.className = 'bucket-count';
-      count.textContent = `${bucket.count} words`;
+      const count = document.createElement('div'); count.className = 'bucket-count'; count.textContent = `${b.count} words`;
+      const pct = document.createElement('div'); pct.className = 'bucket-pct'; pct.textContent = `${b.pct}%`;
 
-      const pct = document.createElement('div');
-      pct.className = 'bucket-pct';
-      pct.textContent = `${bucket.pct}%`;
-
-      row.appendChild(patternsDiv);
-      row.appendChild(count);
-      row.appendChild(pct);
+      row.append(patternsDiv, count, pct);
       list.appendChild(row);
-    }
+    });
 
-    const resultsEl = document.getElementById('results');
-    resultsEl.style.display = 'flex';
-    resultsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    document.getElementById('results').style.display = 'flex';
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   init();
