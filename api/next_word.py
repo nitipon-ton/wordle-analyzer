@@ -100,8 +100,9 @@ class handler(BaseHTTPRequestHandler):
         top_guesses = []
 
         # 2. Pure Python Dynamic scoring loop
-        if n_surviving > 0:
-            if n_surviving > 1429:
+        # CHANGED: Skip scoring calculation entirely if 2 or fewer options remain
+        if n_surviving > 2:
+            if n_surviving > 1500:
                 candidate_words = list(set(remaining_words + TOP_GLOBAL_OPENERS))
             else:
                 candidate_words = GUESSES
@@ -122,14 +123,10 @@ class handler(BaseHTTPRequestHandler):
                 expected = sum(c ** 2 for c in counts) / n_surviving
                 scored.append((worst, expected, guess))
 
-            # --- CRITICAL CHANGE HERE ---
-            # Sort order priority:
-            # 1. Worst Case Left (Ascending: lower is better)
-            # 2. In Pool Status (Ascending: 0 for True comes before 1 for False)
-            # 3. Expected Left (Ascending: lower is better)
+            # Sort order priority: Worst Case Left -> In Pool Status -> Expected Left
             scored.sort(key=lambda x: (x[0], 0 if x[2] in answer_set else 1, x[1]))
 
-            for worst, expected, guess in scored[:30]:
+            for worst, expected, guess in scored[:20]:
                 top_guesses.append({
                     "word": guess,
                     "worst": worst,
