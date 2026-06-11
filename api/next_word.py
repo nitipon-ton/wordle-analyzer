@@ -103,8 +103,8 @@ class handler(BaseHTTPRequestHandler):
         if n_surviving > 0:
             if n_surviving == len(ANSWERS):
                 candidate_words = TOP_GLOBAL_OPENERS
-            elif n_surviving > 150:
-                candidate_words = list(set(remaining_words + TOP_GLOBAL_OPENERS))
+            #elif n_surviving > 150:
+            #    candidate_words = list(set(remaining_words + TOP_GLOBAL_OPENERS))
             else:
                 candidate_words = GUESSES
 
