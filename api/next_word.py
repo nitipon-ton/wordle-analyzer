@@ -123,7 +123,7 @@ class handler(BaseHTTPRequestHandler):
                 expected = sum(c ** 2 for c in counts) / n_surviving
                 scored.append((worst, expected, guess))
 
-            # Sort order priority: Worst Case Left -> In Pool Status -> Expected Left
+            # Sort order priority: Worst Case Left -> Expected Left -> In Pool Status
             scored.sort(key=lambda x: (x[0], x[1], 0 if x[2] in answer_set else 1))
 
             for worst, expected, guess in scored[:20]:
