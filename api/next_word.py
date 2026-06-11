@@ -1,7 +1,6 @@
 from http.server import BaseHTTPRequestHandler
 import json
 import os
-import numpy as np
 
 # Tiny global caches for text dictionaries
 GUESSES = None
@@ -10,8 +9,11 @@ LOAD_ERROR = None
 
 # Hardcoded global high-value openers to evaluate when the search space is wide
 TOP_GLOBAL_OPENERS = [
-    "raise", "crane", "crate", "slate", "trace", "stare", "audio", "adieu", "salet",
-    "carte", "tread", "reast", "peart", "peast", "roast", "pears", "store", "least"
+    "raise", "crane", "crate", "slate", "trace", "stare", "audio", "adieu", "salet", "roate", "raile",
+    "soare", "arise", "irate", "orate", "ariel", "arose", "raine", "artel", "taler", "ratel", 
+    "arles", "realo", "alter", "saner", "later", "snare", "oater", "taser", "tares", "fluke",
+    "alert", "reais", "kares", "groin", "chump", "prone", "flame", "gripe", "flair", "grace", 
+    "aesir", "carte", "tread", "reast", "peart", "peast", "roast", "pears", "store", "least"
 ]
 
 def init_words():
@@ -97,20 +99,15 @@ class handler(BaseHTTPRequestHandler):
         n_surviving = len(remaining_words)
         top_guesses = []
 
-        # 2. Dynamic scoring loop (No .npy matrix read needed!)
+        # 2. Pure Python Dynamic scoring loop
         if n_surviving > 0:
-            # Determine which words are worth evaluating based on pool size to prevent timeouts
             if n_surviving == len(ANSWERS):
-                # Turn 1 absolute pristine state bypass
                 candidate_words = TOP_GLOBAL_OPENERS
             elif n_surviving > 150:
-                # Early/Wide turn: Evaluate surviving options + top informational choices
                 candidate_words = list(set(remaining_words + TOP_GLOBAL_OPENERS))
             else:
-                # Narrow turn: Fully safe to scan all 12,972 words on-the-fly in milliseconds
                 candidate_words = GUESSES
 
-            # Dynamically compute submatrix chunks for active options
             scored = []
             answer_set = set(remaining_words)
 
@@ -118,13 +115,14 @@ class handler(BaseHTTPRequestHandler):
                 if guess in excluded_words:
                     continue
                 
-                # Compute array values dynamically on the fly
-                patterns = [get_pattern_int(guess, ans) for ans in remaining_words]
+                # Pure Python replacement for np.bincount tracking
+                counts = [0] * 243
+                for ans in remaining_words:
+                    p = get_pattern_int(guess, ans)
+                    counts[p] += 1
                 
-                # Use numpy tracking on the tiny dynamic array slice
-                counts = np.bincount(patterns, minlength=243)
-                worst = int(counts.max())
-                expected = float(np.sum(counts ** 2)) / n_surviving
+                worst = max(counts)
+                expected = sum(c ** 2 for c in counts) / n_surviving
                 scored.append((worst, expected, guess))
 
             # Sort by lowest worst-case scenario, breaking ties with expected value
