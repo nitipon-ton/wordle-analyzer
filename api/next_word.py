@@ -101,10 +101,8 @@ class handler(BaseHTTPRequestHandler):
 
         # 2. Pure Python Dynamic scoring loop
         if n_surviving > 0:
-            if n_surviving == len(ANSWERS):
-                candidate_words = TOP_GLOBAL_OPENERS
-            #elif n_surviving > 150:
-            #    candidate_words = list(set(remaining_words + TOP_GLOBAL_OPENERS))
+            if n_surviving > 1429:
+                candidate_words = list(set(remaining_words + TOP_GLOBAL_OPENERS))
             else:
                 candidate_words = GUESSES
 
@@ -115,7 +113,6 @@ class handler(BaseHTTPRequestHandler):
                 if guess in excluded_words:
                     continue
                 
-                # Pure Python replacement for np.bincount tracking
                 counts = [0] * 243
                 for ans in remaining_words:
                     p = get_pattern_int(guess, ans)
@@ -125,8 +122,12 @@ class handler(BaseHTTPRequestHandler):
                 expected = sum(c ** 2 for c in counts) / n_surviving
                 scored.append((worst, expected, guess))
 
-            # Sort by lowest worst-case scenario, breaking ties with expected value
-            scored.sort(key=lambda x: (x[0], x[1]))
+            # --- CRITICAL CHANGE HERE ---
+            # Sort order priority:
+            # 1. Worst Case Left (Ascending: lower is better)
+            # 2. In Pool Status (Ascending: 0 for True comes before 1 for False)
+            # 3. Expected Left (Ascending: lower is better)
+            scored.sort(key=lambda x: (x[0], 0 if x[2] in answer_set else 1, x[1]))
 
             for worst, expected, guess in scored[:30]:
                 top_guesses.append({
