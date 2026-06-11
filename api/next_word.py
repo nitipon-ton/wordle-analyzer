@@ -3,51 +3,60 @@ import json
 import os
 import numpy as np
 
-# Global variables cached across warm lambda execution contexts
-TABLE = None
+# Tiny global caches for text dictionaries
 GUESSES = None
 ANSWERS = None
-GUESS_INDEX = None
 LOAD_ERROR = None
 
-def init_data():
-    """Lazy-load data matrices instantly into memory using memory-mapping."""
-    global TABLE, GUESSES, ANSWERS, GUESS_INDEX, LOAD_ERROR
-    if TABLE is not None:
+# Hardcoded global high-value openers to evaluate when the search space is wide
+TOP_GLOBAL_OPENERS = [
+    "raise", "crane", "crate", "slate", "trace", "stare", "audio", "adieu", "salet",
+    "carte", "tread", "reast", "peart", "peast", "roast", "pears", "store", "least"
+]
+
+def init_words():
+    """Load the raw text word lists into memory (takes <5ms)."""
+    global GUESSES, ANSWERS, LOAD_ERROR
+    if GUESSES is not None:
         return
     try:
-        # Match your project's data architecture layout
         base_dir = os.path.join(os.path.dirname(__file__), "..", "data")
-        table_path = os.path.join(base_dir, "pattern_table.npy")
-        
-        # Handle cases where word lists are either text or JSON format
         guesses_path = os.path.join(base_dir, "guesses.txt")
         answers_path = os.path.join(base_dir, "answers.txt")
 
-        # Fallback to JSON if your data folder uses .json suffixes
+        # Fallback to current directory check
         if not os.path.exists(guesses_path):
-            guesses_path = os.path.join(base_dir, "guesses.json")
-            answers_path = os.path.join(base_dir, "answers.json")
+            base_dir = os.path.join(os.path.dirname(__file__), "data")
+            guesses_path = os.path.join(base_dir, "guesses.txt")
+            answers_path = os.path.join(base_dir, "answers.txt")
 
-        if guesses_path.endswith('.json'):
-            with open(guesses_path) as f:
-                GUESSES = json.load(f)
-            with open(answers_path) as f:
-                ANSWERS = json.load(f)
-        else:
-            with open(guesses_path) as f:
-                GUESSES = [w.strip().lower() for w in f if len(w.strip()) == 5]
-            with open(answers_path) as f:
-                ANSWERS = [w.strip().lower() for w in f if len(w.strip()) == 5]
-
-        # Use memory mapping to bypass heavy cold-start file read bottlenecks
-        TABLE = np.load(table_path, mmap_mode='r')
-        GUESS_INDEX = {w: i for i, w in enumerate(GUESSES)}
+        with open(guesses_path) as f:
+            GUESSES = [w.strip().lower() for w in f if len(w.strip()) == 5]
+        with open(answers_path) as f:
+            ANSWERS = [w.strip().lower() for w in f if len(w.strip()) == 5]
     except Exception as e:
         LOAD_ERROR = str(e)
 
-def encode_trits(trits):
-    return trits[0] + trits[1]*3 + trits[2]*9 + trits[3]*27 + trits[4]*81
+def get_pattern_int(guess, answer):
+    """Computes Wordle pattern matching and encodes directly to base-3 integer."""
+    result = [0, 0, 0, 0, 0]
+    answer_chars = list(answer)
+
+    # First pass: Greens
+    for i in range(5):
+        if guess[i] == answer[i]:
+            result[i] = 2
+            answer_chars[i] = None
+
+    # Second pass: Yellows
+    for i in range(5):
+        if result[i] == 2:
+            continue
+        if guess[i] in answer_chars:
+            result[i] = 1
+            answer_chars[answer_chars.index(guess[i])] = None
+
+    return result[0] + result[1]*3 + result[2]*9 + result[3]*27 + result[4]*81
 
 class handler(BaseHTTPRequestHandler):
 
@@ -57,9 +66,9 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self):
-        init_data()
+        init_words()
         if LOAD_ERROR:
-            self._json(500, {"error": f"Lookup assets failed to populate: {LOAD_ERROR}"})
+            self._json(500, {"error": f"Word lists failed to load: {LOAD_ERROR}"})
             return
 
         length = int(self.headers.get("Content-Length", 0))
@@ -67,75 +76,66 @@ class handler(BaseHTTPRequestHandler):
         try:
             data = json.loads(body)
         except Exception:
-            self._json(400, {"error": "Malformed JSON payload payload."})
+            self._json(400, {"error": "Invalid JSON payload."})
             return
 
-        # Expects history: [{"word": "crane", "pattern": [0, 1, 2, 0, 0]}]
-        history = data.get("history", [])
+        history = data.get("history", []) # Expected format: [{"word": "crane", "pattern": [0,1,2,0,0]}]
         
-        # Validate inputs against known dictionaries
-        for turn in history:
-            w = turn.get("word", "").strip().lower()
-            p = turn.get("pattern", [])
-            if w not in GUESS_INDEX:
-                self._json(400, {"error": f"'{w}' is not a valid guess word."})
-                return
-            if len(p) != 5 or not all(x in (0, 1, 2) for x in p):
-                self._json(400, {"error": "Patterns must be a list of 5 digits containing 0, 1, or 2."})
-                return
+        # 1. Filter remaining candidate answer pool on the fly
+        remaining_words = list(ANSWERS)
+        excluded_words = set()
 
-        # 1. Filter surviving answers based on game history
-        mask = np.ones(len(ANSWERS), dtype=bool)
-        excluded_indices = []
         for turn in history:
             w = turn["word"].strip().lower()
             p = turn["pattern"]
-            g_idx = GUESS_INDEX[w]
-            excluded_indices.append(g_idx)
-            target = encode_trits(p)
-            mask &= (TABLE[g_idx, :] == target)
+            excluded_words.add(w)
+            target_pattern = p[0] + p[1]*3 + p[2]*9 + p[3]*27 + p[4]*81
+            
+            # Keep only answers that match the historical feedback pattern
+            remaining_words = [ans for ans in remaining_words if get_pattern_int(w, ans) == target_pattern]
 
-        surviving = np.where(mask)[0]
-        n_surviving = len(surviving)
-        remaining_words = [ANSWERS[i] for i in surviving]
-
-        # 2. Score candidate items dynamically using runtime-safe guardrails
+        n_surviving = len(remaining_words)
         top_guesses = []
+
+        # 2. Dynamic scoring loop (No .npy matrix read needed!)
         if n_surviving > 0:
-            answer_set = set(remaining_words)
-            excluded = set(excluded_indices)
-
-            # Adaptive filtering bypass: Don't scan 13k items if search space is wide
-            if n_surviving == len(ANSWERS) or n_surviving > 250:
-                # Early Game: Evaluate current candidates plus top metadata openers
-                top_defaults = ["raise", "crane", "crate", "slate", "trace", "stare", "audio"]
-                default_indices = [GUESS_INDEX[w] for w in top_defaults if w in GUESS_INDEX]
-                surviving_guess_indices = [GUESS_INDEX[ANSWERS[idx]] for idx in surviving if ANSWERS[idx] in GUESS_INDEX]
-                candidate_indices = list(set(surviving_guess_indices + default_indices))
+            # Determine which words are worth evaluating based on pool size to prevent timeouts
+            if n_surviving == len(ANSWERS):
+                # Turn 1 absolute pristine state bypass
+                candidate_words = TOP_GLOBAL_OPENERS
+            elif n_surviving > 150:
+                # Early/Wide turn: Evaluate surviving options + top informational choices
+                candidate_words = list(set(remaining_words + TOP_GLOBAL_OPENERS))
             else:
-                # Late Game: Search space is tight enough to scan all 13,000 words safely (<200ms)
-                candidate_indices = range(len(GUESSES))
+                # Narrow turn: Fully safe to scan all 12,972 words on-the-fly in milliseconds
+                candidate_words = GUESSES
 
-            sub = TABLE[:, surviving]
+            # Dynamically compute submatrix chunks for active options
             scored = []
+            answer_set = set(remaining_words)
 
-            for g_idx in candidate_indices:
-                if g_idx in excluded:
+            for guess in candidate_words:
+                if guess in excluded_words:
                     continue
-                counts = np.bincount(sub[g_idx].astype(np.int32), minlength=243)
+                
+                # Compute array values dynamically on the fly
+                patterns = [get_pattern_int(guess, ans) for ans in remaining_words]
+                
+                # Use numpy tracking on the tiny dynamic array slice
+                counts = np.bincount(patterns, minlength=243)
                 worst = int(counts.max())
                 expected = float(np.sum(counts ** 2)) / n_surviving
-                scored.append((worst, expected, g_idx))
+                scored.append((worst, expected, guess))
 
+            # Sort by lowest worst-case scenario, breaking ties with expected value
             scored.sort(key=lambda x: (x[0], x[1]))
 
-            for worst, expected, g_idx in scored[:30]:
-                w = GUESSES[g_idx]
+            for worst, expected, guess in scored[:30]:
                 top_guesses.append({
-                    "word": w,
+                    "word": guess,
                     "worst": worst,
                     "expected": round(expected, 2),
-                    "in_pool": w in answer_set
+                    "in_pool": guess in answer_set
                 })
 
         self._json(200, {
