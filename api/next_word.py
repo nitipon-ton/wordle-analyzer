@@ -102,7 +102,7 @@ class handler(BaseHTTPRequestHandler):
         # 2. Pure Python Dynamic scoring loop
         # CHANGED: Skip scoring calculation entirely if 2 or fewer options remain
         if n_surviving > 2:
-            if n_surviving > 1500:
+            if n_surviving > 3000:
                 candidate_words = list(set(remaining_words + TOP_GLOBAL_OPENERS))
             else:
                 candidate_words = GUESSES
