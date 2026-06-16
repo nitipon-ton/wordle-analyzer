@@ -488,7 +488,6 @@ thong
 tight
 timid
 toddy
-token
 tonal
 tonga
 torus
