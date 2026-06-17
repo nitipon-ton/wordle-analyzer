@@ -146,7 +146,6 @@ elegy
 elide
 emcee
 enemy
-entry
 erect
 ester
 evict
