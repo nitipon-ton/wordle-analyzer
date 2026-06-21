@@ -288,7 +288,6 @@ optic
 orbit
 outgo
 ovary
-ovate
 ovine
 ovoid
 owing
