@@ -331,7 +331,6 @@ pushy
 putty
 pygmy
 quasi
-queer
 quoth
 rabbi
 radar
