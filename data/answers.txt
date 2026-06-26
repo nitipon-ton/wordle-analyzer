@@ -379,7 +379,6 @@ scaly
 scamp
 scary
 scion
-scoop
 scree
 screw
 scuba
