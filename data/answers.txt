@@ -141,7 +141,6 @@ eking
 elect
 elegy
 elide
-emcee
 enemy
 erect
 ester
