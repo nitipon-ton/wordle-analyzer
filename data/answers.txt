@@ -75,7 +75,6 @@ chess
 chick
 china
 churn
-clack
 claim
 clank
 cleat
