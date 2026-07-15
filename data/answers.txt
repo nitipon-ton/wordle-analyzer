@@ -9,6 +9,7 @@ agora
 aider
 algae
 allay
+aloha
 amity
 anime
 annul
@@ -384,6 +385,7 @@ sheen
 sheer
 sheik
 shied
+shill
 shiny
 shirt
 shock
