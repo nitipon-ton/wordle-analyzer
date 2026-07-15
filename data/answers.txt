@@ -438,7 +438,6 @@ spurn
 squib
 stalk
 stave
-steak
 steal
 steer
 stoke
@@ -647,7 +646,6 @@ offal
 flume
 crass
 panel
-stout
 bribe
 drain
 yearn
