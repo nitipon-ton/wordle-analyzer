@@ -73,7 +73,6 @@ chaff
 chess
 chick
 china
-churn
 claim
 clank
 cleat
@@ -111,7 +110,6 @@ dimly
 diode
 dirty
 ditch
-diver
 downy
 drank
 drawl
@@ -232,7 +230,6 @@ lipid
 loamy
 login
 loose
-lorry
 lumen
 lupus
 lurch
@@ -382,7 +379,6 @@ sheen
 sheer
 sheik
 shied
-shill
 shiny
 shirt
 shock
