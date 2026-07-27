@@ -9,7 +9,6 @@ agora
 aider
 algae
 allay
-aloha
 amity
 anime
 annul
@@ -184,7 +183,6 @@ godly
 golly
 gonad
 gourd
-grape
 graze
 grill
 grope
@@ -297,7 +295,6 @@ plier
 plush
 poesy
 pooch
-poser
 posit
 pouch
 prawn
