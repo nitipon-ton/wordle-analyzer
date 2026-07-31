@@ -307,7 +307,6 @@ punch
 pupal
 puree
 purer
-purse
 pushy
 pygmy
 quasi
@@ -631,7 +630,6 @@ argue
 swirl
 error
 offal
-flume
 crass
 panel
 bribe
