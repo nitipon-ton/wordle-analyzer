@@ -671,7 +671,6 @@ crust
 fresh
 death
 major
-feign
 abate
 bench
 quiet
