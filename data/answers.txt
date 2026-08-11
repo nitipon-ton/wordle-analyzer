@@ -145,7 +145,6 @@ fella
 felon
 femme
 femur
-fence
 fetal
 fetus
 fibre
@@ -296,7 +295,6 @@ pooch
 pouch
 prawn
 pried
-privy
 pubic
 pudgy
 pulse
@@ -401,7 +399,6 @@ smoky
 smote
 sneer
 sniff
-snipe
 snowy
 snuck
 snuff
