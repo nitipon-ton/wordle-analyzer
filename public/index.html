@@ -489,6 +489,7 @@
     <div class="word-rows" id="wordRows"></div>
 
     <div class="row-controls">
+      <button class="btn-ghost" onclick="resetAnalyzer()">Reset</button>
       <button class="btn-ghost" id="btnRemove" onclick="removeRow()">− Remove word</button>
       <button class="btn-ghost" id="btnAdd"    onclick="addRow()">+ Add word</button>
     </div>
@@ -549,6 +550,7 @@
   function init() {
     setupFinderInputTiles();
     renderRows();
+    focusFirstFinderTile();
   }
 
   function switchTab(tab) {
@@ -559,10 +561,22 @@
     if (tab === 'finder') {
       document.getElementById('tabFinder').classList.add('active');
       document.getElementById('finderPage').classList.add('active');
+      focusFirstFinderTile();
     } else {
       document.getElementById('tabAnalyzer').classList.add('active');
       document.getElementById('analyzerPage').classList.add('active');
+      focusFirstAnalyzerTile();
     }
+  }
+
+  function focusFirstFinderTile() {
+    const container = document.getElementById('currentFinderTiles');
+    if (container && container.children[0]) container.children[0].focus();
+  }
+
+  function focusFirstAnalyzerTile() {
+    const first = document.querySelector('#wordRows .word-row[data-row="0"] .tile-input');
+    if (first) first.focus();
   }
 
   // ── Tab 1 Implementation: Next Word Finder Engine ───────────
@@ -748,6 +762,7 @@
     document.getElementById('finderResults').style.display = 'none';
     renderFinderHistoryElements();
     setupFinderInputTiles();
+    focusFirstFinderTile();
   }
 
   // ── Tab 2 Implementation: Opening Analyzer Frameworks ──────────
@@ -805,13 +820,29 @@
     document.getElementById('btnRemove').disabled = numRows <= 1;
   }
 
-  function addRow() { if (numRows < MAX_ROWS) { numRows++; renderRows(); } }
+  function addRow() {
+    if (numRows < MAX_ROWS) {
+      numRows++;
+      renderRows();
+      const newRowTile = document.querySelector(`#wordRows .word-row[data-row="${numRows - 1}"] .tile-input`);
+      if (newRowTile) newRowTile.focus();
+    }
+  }
   function removeRow() {
     if (numRows > 1) {
       const tiles = document.querySelectorAll(`.word-row[data-row="${numRows - 1}"] .tile-input`);
       tiles.forEach(t => { t.value = ''; t.classList.remove('filled', 'error'); });
       numRows--; renderRows();
     }
+  }
+
+  function resetAnalyzer() {
+    numRows = 1;
+    document.querySelectorAll('#wordRows .tile-input').forEach(t => { t.value = ''; t.classList.remove('filled', 'error'); });
+    clearError();
+    document.getElementById('results').style.display = 'none';
+    renderRows();
+    focusFirstAnalyzerTile();
   }
 
   function showError(msg) { document.getElementById('errorMsg').textContent = msg; }
