@@ -69,8 +69,29 @@ more aggressively upfront.
 | 4 | `tiare` |
 | 5 | `soare` |
 
-**Full list — top by actual play:** simulation in progress across the top 15 metric candidates,
-2,341 answers each. This is the slower list to simulate — results to follow.
+**Full list — top 10 by actual play** (avg guesses, all 2,341 answers simulated):
+
+| Rank | Word | Avg guesses |
+|---|---|---|
+| 1 | `tarse` | 3.4468 |
+| 2 | `ranse` | 3.4729 |
+| 3 | `tiare` | 3.4737 |
+| 4 | `artel` | 3.4827 |
+| 5 | `roate` | 3.4848 |
+| 6 | `soare` | 3.4861 |
+| 7 | `raile` | 3.4891 |
+| 8 | `raise` | 3.4908 |
+| 9 | `raine` | 3.4912 |
+| 10 | `taler` | 3.4938 |
+
+**`tarse` wins on both lists.** It beats `roate` — the metric's #1 pick here — by 0.038 guesses,
+roughly one extra turn every 26 games. Same pattern as the curated list: `tarse` isn't near the top
+of the one-ply metric (it's outside the top 10 by expected-remaining) but consistently plays better
+in full simulation.
+
+A batch of 10 words suggested by another Wordle-bot developer (`salet`, `reast`, `crate`, `trace`,
+`slate`, `crane`, `carle`, `slane`, `carte`, `torse`) is being simulated against both lists to check
+whether any beat `tarse` — results to follow.
 
 The finder's UI doesn't let you request a first word — computing it means scoring every guess
 against the whole answer list, which is slow. Use the actual-play tables above to start instead.

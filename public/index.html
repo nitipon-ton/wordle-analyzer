@@ -44,6 +44,22 @@
       align-items: center;
     }
 
+    .how-it-works {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 12px;
+      padding: 5px 12px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--subtext);
+      font-size: 0.75rem;
+      text-decoration: none;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .how-it-works:hover { border-color: var(--muted); color: var(--text); }
+
     /* ── Tabbed Layout Header ─────────────────────────────────── */
     header {
       width: 100%;
@@ -474,6 +490,7 @@
     <div class="intro">
       <h2>Interactive Next Guess Solver</h2>
       <p>Enter your played guess words below. Click individual character tiles to match the color response returned by Wordle.</p>
+      <a class="how-it-works" href="https://github.com/nitipon-ton/wordle-analyzer/blob/main/README.md" target="_blank" rel="noopener">How this works ↗</a>
     </div>
 
     <div class="pool-toggle">
