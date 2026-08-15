@@ -441,9 +441,13 @@
       <div class="hint-text">Type a word, then click color tiles to switch: ⬛ → 🟨 → 🟩</div>
     </div>
 
-    <div class="action-controls">
+    <div class="row-controls">
+      <button class="btn-ghost" id="btnUndoFinder" onclick="removeLastFinderWord()">− Remove last word</button>
       <button class="btn-ghost" onclick="resetFinder()">Reset Matrix</button>
-      <button class="analyze-btn" id="btnSubmitFinder" onclick="submitFinderGuess()" style="width: 220px;">Add & Analyze</button>
+    </div>
+
+    <div class="action-controls">
+      <button class="analyze-btn" id="btnSubmitFinder" onclick="submitFinderGuess()" style="width: 220px;">+ Add &amp; Analyze</button>
     </div>
 
     <div class="error-msg" id="finderErrorMsg"></div>
@@ -550,6 +554,7 @@
   function init() {
     setupFinderInputTiles();
     renderRows();
+    updateUndoButton();
     focusFirstFinderTile();
   }
 
@@ -570,8 +575,22 @@
   }
 
   function focusFirstFinderTile() {
+    focusFinderTile(0);
+  }
+
+  // Focus the last tile with the caret after its letter, so Backspace deletes
+  // straight away instead of sitting in front of the character doing nothing.
+  function focusLastFinderTile() {
+    focusFinderTile(4);
+  }
+
+  function focusFinderTile(index) {
     const container = document.getElementById('currentFinderTiles');
-    if (container && container.children[0]) container.children[0].focus();
+    const tile = container && container.children[index];
+    if (!tile) return;
+    tile.focus();
+    const end = tile.value.length;
+    try { tile.setSelectionRange(end, end); } catch (e) { /* not all inputs support it */ }
   }
 
   function focusFirstAnalyzerTile() {
@@ -580,19 +599,25 @@
   }
 
   // ── Tab 1 Implementation: Next Word Finder Engine ───────────
-  function setupFinderInputTiles() {
+  function setupFinderInputTiles(prefillWord, prefillPattern) {
     const container = document.getElementById('currentFinderTiles');
     container.innerHTML = '';
-    currentFinderPattern = [0, 0, 0, 0, 0];
+    currentFinderPattern = prefillPattern ? [...prefillPattern] : [0, 0, 0, 0, 0];
 
     for (let i = 0; i < 5; i++) {
       const input = document.createElement('input');
       input.type = 'text';
-      input.className = 'tile-input clickable-tile state-0';
+      const state = currentFinderPattern[i];
+      input.className = `tile-input clickable-tile state-${state}`;
       input.maxLength = 1;
       input.dataset.col = i;
       input.autocomplete = 'off';
       input.spellcheck = false;
+
+      if (prefillWord) {
+        input.value = prefillWord[i].toUpperCase();
+        input.classList.add('filled');
+      }
 
       input.addEventListener('input', e => {
         const val = e.target.value.replace(/[^a-zA-Z]/g, '').toUpperCase();
@@ -649,42 +674,90 @@
     }
 
     const currentTurn = { word, pattern: [...currentFinderPattern] };
+
+    const data = await requestFinderAnalysis([...finderHistory, currentTurn], 'Calculating...');
+    if (!data) return;
+
+    finderHistory.push(currentTurn);
+    renderFinderHistoryElements();
+    renderFinderResultsDisplay(data);
+
+    setupFinderInputTiles();
+    focusFirstFinderTile();
+  }
+
+  // Shared fetch used by both "Add & Analyze" and "Remove last word".
+  // Returns the parsed payload, or null if the call failed (error already shown).
+  async function requestFinderAnalysis(history, busyLabel) {
+    const errEl = document.getElementById('finderErrorMsg');
     const btn = document.getElementById('btnSubmitFinder');
+    const undo = document.getElementById('btnUndoFinder');
+    const label = btn.textContent;
+
     btn.disabled = true;
-    btn.textContent = 'Calculating...';
+    undo.disabled = true;
+    btn.textContent = busyLabel;
 
     try {
       const res = await fetch('/api/next_word', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ history: [...finderHistory, currentTurn] })
+        body: JSON.stringify({ history })
       });
-
       const data = await res.json();
       if (!res.ok) {
         errEl.textContent = data.error || 'Server calculation exception.';
-        return;
+        return null;
       }
-
-      finderHistory.push(currentTurn);
-      renderFinderHistoryElements();
-      renderFinderResultsDisplay(data);
-
-      setupFinderInputTiles();
-      container.children[0].focus();
-
+      return data;
     } catch (err) {
       errEl.textContent = 'Network communication failure context.';
+      return null;
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Add & Analyze';
+      btn.textContent = label;
+      updateUndoButton();
     }
+  }
+
+  // Pops the most recent guess and puts it back in the tiles so a typo can be
+  // corrected in place instead of forcing a full reset.
+  async function removeLastFinderWord() {
+    if (finderHistory.length === 0) return;
+    document.getElementById('finderErrorMsg').textContent = '';
+
+    const removed = finderHistory[finderHistory.length - 1];
+    const shortened = finderHistory.slice(0, -1);
+
+    // Nothing left to analyze - clear results and hand the word back for editing.
+    if (shortened.length === 0) {
+      finderHistory = [];
+      document.getElementById('finderResults').style.display = 'none';
+      renderFinderHistoryElements();
+      setupFinderInputTiles(removed.word, removed.pattern);
+      focusLastFinderTile();
+      return;
+    }
+
+    const data = await requestFinderAnalysis(shortened, 'Removing...');
+    if (!data) return;
+
+    finderHistory = shortened;
+    renderFinderHistoryElements();
+    renderFinderResultsDisplay(data);
+    setupFinderInputTiles(removed.word, removed.pattern);
+    focusLastFinderTile();
+  }
+
+  function updateUndoButton() {
+    document.getElementById('btnUndoFinder').disabled = finderHistory.length === 0;
   }
 
   function renderFinderHistoryElements() {
     const section = document.getElementById('finderHistorySection');
     const list = document.getElementById('finderHistoryList');
     list.innerHTML = '';
+    updateUndoButton();
 
     if (finderHistory.length === 0) {
       section.style.display = 'none';
