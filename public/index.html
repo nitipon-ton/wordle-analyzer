@@ -700,6 +700,11 @@
 
     // The finder's history is still valid input; re-score it against the new pool.
     if (finderHistory.length > 0) reanalyzeFinder();
+
+    // Clicking the toggle moves focus to the button, so hand it back to the
+    // tiles of whichever tab is showing.
+    if (activeTab === 'finder') focusFirstEmptyFinderTile();
+    else focusFirstEmptyAnalyzerTile();
   }
 
   async function reanalyzeFinder() {
@@ -736,6 +741,16 @@
     focusFinderTile(0);
   }
 
+  // Focus wherever the user would naturally resume typing: the first blank
+  // tile, or tile 4 if the word is already complete.
+  function focusFirstEmptyFinderTile() {
+    const container = document.getElementById('currentFinderTiles');
+    if (!container) return;
+    const tiles = [...container.children];
+    const idx = tiles.findIndex(t => t.value === '');
+    focusFinderTile(idx === -1 ? 4 : idx);
+  }
+
   // Focus the last tile with the caret after its letter, so Backspace deletes
   // straight away instead of sitting in front of the character doing nothing.
   function focusLastFinderTile() {
@@ -754,6 +769,17 @@
   function focusFirstAnalyzerTile() {
     const first = document.querySelector('#wordRows .word-row[data-row="0"] .tile-input');
     if (first) first.focus();
+  }
+
+  // Same idea as the finder: first blank tile across the visible rows, or the
+  // very first tile if everything is already filled in.
+  function focusFirstEmptyAnalyzerTile() {
+    const tiles = [];
+    for (let r = 0; r < numRows; r++) {
+      tiles.push(...document.querySelectorAll(`#wordRows .word-row[data-row="${r}"] .tile-input`));
+    }
+    if (!tiles.length) return;
+    (tiles.find(t => t.value === '') || tiles[0]).focus();
   }
 
   // ── Tab 1 Implementation: Next Word Finder Engine ───────────
