@@ -218,6 +218,57 @@
       margin-top: 8px;
     }
 
+    /* ── Answer-pool toggle ───────────────────────────────────── */
+    .pool-toggle {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .pool-switch {
+      display: flex;
+      gap: 4px;
+      background: #0b0b0c;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px;
+    }
+
+    .pool-switch button {
+      background: none;
+      border: none;
+      color: var(--subtext);
+      font-family: var(--font-body);
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 6px 16px;
+      border-radius: 16px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+
+    .pool-switch button:hover:not(.active) { color: var(--text); }
+
+    .pool-switch button.active {
+      background: var(--green);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .pool-caption {
+      font-size: 0.74rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.5;
+      max-width: 420px;
+    }
+
     /* ── Interactive Controls ────────────────────────────────── */
     .row-controls, .action-controls {
       display: flex;
@@ -425,6 +476,14 @@
       <p>Enter your played guess words below. Click individual character tiles to match the color response returned by Wordle.</p>
     </div>
 
+    <div class="pool-toggle">
+      <div class="pool-switch">
+        <button id="poolRecentFinder" class="active" onclick="setAnswerPool('recent')">Recent removed</button>
+        <button id="poolFullFinder" onclick="setAnswerPool('full')">Full answer list</button>
+      </div>
+      <div class="pool-caption" id="poolCaptionFinder"></div>
+    </div>
+
     <div id="finderHistorySection" style="display: none;">
       <div class="results-header" style="margin-bottom: 12px;">
         <h3>Guess Sequences Added</h3>
@@ -490,6 +549,14 @@
       <p>Enter 1-3 starting words.<br>We'll tell you how many possible answers they leave on average and in the worst case.</p>
     </div>
 
+    <div class="pool-toggle">
+      <div class="pool-switch">
+        <button id="poolRecentAnalyzer" class="active" onclick="setAnswerPool('recent')">Recent removed</button>
+        <button id="poolFullAnalyzer" onclick="setAnswerPool('full')">Full answer list</button>
+      </div>
+      <div class="pool-caption" id="poolCaptionAnalyzer"></div>
+    </div>
+
     <div class="word-rows" id="wordRows"></div>
 
     <div class="row-controls">
@@ -551,10 +618,49 @@
   let numRows = 1;
   const MAX_ROWS = 3;
 
+  // Which answer pool both tools score against.
+  //   'recent' -> data/answers.txt      (recently-used Wordle answers stripped out)
+  //   'full'   -> data/full_answers.txt (every official answer, all equally likely)
+  let answerPool = 'recent';
+
+  const POOL_CAPTIONS = {
+    recent: 'Scoring against the curated list — answers used in the last few years are removed, ' +
+            'so odds reflect what Wordle can still pick today.',
+    full:   'Scoring against every official Wordle answer, each equally likely — ' +
+            'including words already used. Slower, and the better choice for theory.'
+  };
+
+  function setAnswerPool(pool) {
+    if (pool === answerPool) return;
+    answerPool = pool;
+
+    ['Finder', 'Analyzer'].forEach(tab => {
+      document.getElementById(`poolRecent${tab}`).classList.toggle('active', pool === 'recent');
+      document.getElementById(`poolFull${tab}`).classList.toggle('active', pool === 'full');
+      document.getElementById(`poolCaption${tab}`).textContent = POOL_CAPTIONS[pool];
+    });
+
+    // Results came from the other pool, so they no longer describe anything on screen.
+    document.getElementById('finderResults').style.display = 'none';
+    document.getElementById('results').style.display = 'none';
+    document.getElementById('finderErrorMsg').textContent = '';
+    clearError();
+
+    // The finder's history is still valid input; re-score it against the new pool.
+    if (finderHistory.length > 0) reanalyzeFinder();
+  }
+
+  async function reanalyzeFinder() {
+    const data = await requestFinderAnalysis(finderHistory, 'Switching...');
+    if (data) renderFinderResultsDisplay(data);
+  }
+
   function init() {
     setupFinderInputTiles();
     renderRows();
     updateUndoButton();
+    document.getElementById('poolCaptionFinder').textContent = POOL_CAPTIONS[answerPool];
+    document.getElementById('poolCaptionAnalyzer').textContent = POOL_CAPTIONS[answerPool];
     focusFirstFinderTile();
   }
 
@@ -702,7 +808,7 @@
       const res = await fetch('/api/next_word', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ history })
+        body: JSON.stringify({ history, word_list: answerPool })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -956,7 +1062,7 @@
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ words }),
+        body: JSON.stringify({ words, word_list: answerPool }),
       });
       const data = await res.json();
       if (!res.ok) { showError(data.error || 'API Processing Failure'); return; }
@@ -973,7 +1079,10 @@
     document.getElementById('statExpected').textContent = data.expected_remaining.toFixed(2);
     document.getElementById('statWorst').textContent    = data.worst_case;
     document.getElementById('statBuckets').textContent  = data.bucket_count.toLocaleString();
-    document.getElementById('statBucketsSub').textContent = `of ${Math.pow(243, data.words.length).toLocaleString()} possible`;
+    // A guess can never split the pool into more buckets than there are answers,
+    // so 243^n alone wildly overstates the ceiling for 2-3 words.
+    const ceiling = Math.min(Math.pow(243, data.words.length), data.total_answers);
+    document.getElementById('statBucketsSub').textContent = `of ${ceiling.toLocaleString()} possible`;
     document.getElementById('statPool').textContent = data.total_answers.toLocaleString();
 
     const list = document.getElementById('bucketList');

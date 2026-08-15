@@ -13,6 +13,7 @@ def load_words(path):
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 ANSWERS_PATH = os.path.join(BASE_DIR, "answers.txt")
+FULL_ANSWERS_PATH = os.path.join(BASE_DIR, "full_answers.txt")
 GUESSES_PATH = os.path.join(BASE_DIR, "guesses.txt")
 
 try:
@@ -24,6 +25,17 @@ except Exception as e:
     LOAD_ERROR = str(e)
 else:
     LOAD_ERROR = None
+
+# Optional - fall back to the curated list if it hasn't been added yet.
+try:
+    FULL_ANSWERS = load_words(FULL_ANSWERS_PATH)
+except Exception:
+    FULL_ANSWERS = ANSWERS
+
+
+def pick_answer_pool(word_list):
+    """'full' -> every official answer; anything else -> curated recent-removed list."""
+    return FULL_ANSWERS if word_list == "full" else ANSWERS
 
 # ---------------------------------------------------------------------------
 # Core Wordle logic (no numpy dependency on serverless)
@@ -131,8 +143,14 @@ class handler(BaseHTTPRequestHandler):
             self._json(400, {"error": "Duplicate words are not allowed."})
             return
 
-        result = analyze(words, ANSWERS)
+        word_list = data.get("word_list", "recent")
+        if word_list not in ("recent", "full"):
+            self._json(400, {"error": "word_list must be 'recent' or 'full'."})
+            return
+
+        result = analyze(words, pick_answer_pool(word_list))
         result["words"] = words
+        result["word_list"] = word_list
         self._json(200, result)
 
     def _cors(self):

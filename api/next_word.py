@@ -5,7 +5,8 @@ import os
 # Tiny global caches for text dictionaries
 GUESSES = None
 GUESSES_SET = None
-ANSWERS = None
+ANSWERS = None        # curated: recently-used Wordle answers removed
+FULL_ANSWERS = None   # every answer the official list has ever used
 LOAD_ERROR = None
 
 # Hardcoded global high-value openers to evaluate when the search space is wide
@@ -19,27 +20,38 @@ TOP_GLOBAL_OPENERS = [
 
 def init_words():
     """Load the raw text word lists into memory (takes <5ms)."""
-    global GUESSES, GUESSES_SET, ANSWERS, LOAD_ERROR
+    global GUESSES, GUESSES_SET, ANSWERS, FULL_ANSWERS, LOAD_ERROR
     if GUESSES is not None:
         return
     try:
         base_dir = os.path.join(os.path.dirname(__file__), "..", "data")
-        guesses_path = os.path.join(base_dir, "guesses.txt")
-        answers_path = os.path.join(base_dir, "answers.txt")
-
-        # Fallback to current directory check
-        if not os.path.exists(guesses_path):
+        if not os.path.exists(os.path.join(base_dir, "guesses.txt")):
             base_dir = os.path.join(os.path.dirname(__file__), "data")
-            guesses_path = os.path.join(base_dir, "guesses.txt")
-            answers_path = os.path.join(base_dir, "answers.txt")
 
-        with open(guesses_path) as f:
-            GUESSES = [w.strip().lower() for w in f if len(w.strip()) == 5]
-        with open(answers_path) as f:
-            ANSWERS = [w.strip().lower() for w in f if len(w.strip()) == 5]
+        def read(name):
+            with open(os.path.join(base_dir, name)) as f:
+                return [w.strip().lower() for w in f if len(w.strip()) == 5]
+
+        GUESSES = read("guesses.txt")
+        ANSWERS = read("answers.txt")
         GUESSES_SET = set(GUESSES)
+
+        # Optional - fall back to the curated list if it hasn't been added yet.
+        try:
+            FULL_ANSWERS = read("full_answers.txt")
+        except Exception:
+            FULL_ANSWERS = ANSWERS
     except Exception as e:
         LOAD_ERROR = str(e)
+
+
+def pick_answer_pool(word_list):
+    """Resolve the requested pool name to its word list.
+
+    'full'    -> every official Wordle answer
+    'recent'  -> curated list with recently-used answers removed (default)
+    """
+    return FULL_ANSWERS if word_list == "full" else ANSWERS
 
 
 def validate_history(history):
@@ -133,8 +145,14 @@ class handler(BaseHTTPRequestHandler):
             self._json(400, {"error": error})
             return
 
+        word_list = data.get("word_list", "recent")
+        if word_list not in ("recent", "full"):
+            self._json(400, {"error": "word_list must be 'recent' or 'full'."})
+            return
+        answer_pool = pick_answer_pool(word_list)
+
         # 1. Filter remaining candidate answer pool on the fly
-        remaining_words = list(ANSWERS)
+        remaining_words = list(answer_pool)
         excluded_words = set()
 
         for turn in history:
@@ -187,7 +205,9 @@ class handler(BaseHTTPRequestHandler):
         self._json(200, {
             "remaining_count": n_surviving,
             "remaining_words": remaining_words,
-            "top_guesses": top_guesses
+            "top_guesses": top_guesses,
+            "word_list": word_list,
+            "pool_size": len(answer_pool)
         })
 
     def _cors(self):

@@ -4,7 +4,22 @@ Analysis of the solver bot (`api/next_word.py`), the opening analyzer (`api/anal
 frontend (`public/index.html`). Covers correctness, performance, and solver quality, with
 measured benchmarks and prototyped alternatives.
 
-Measured on: Python 3.14.6, Windows 11, 688-word answer list / 14,855-word guess list.
+Measured on: Python 3.14.6, Windows 11.
+
+## Word lists
+
+| File | Words | What it is |
+|---|---|---|
+| `data/answers.txt` | **688** | **Default.** Curated — answers Wordle used in roughly the last 2–3 years are removed. Hand-updated every few days as new answers are played. Reflects what Wordle can still pick *today* (as of Aug 2026). |
+| `data/full_answers.txt` | **2,341** | Every official Wordle answer, treated as equally likely — including ones already used. The theoretical baseline. |
+| `data/guesses.txt` | **14,855** | Every word accepted as a *guess*. Candidate pool for recommendations. |
+
+Verified relationships: `answers.txt` ⊂ `full_answers.txt` ⊂ `guesses.txt`, all entries 5 letters
+and alphabetic, no duplicates. The curated list has **1,653 words removed — 70.6% of the full
+list.**
+
+Both endpoints accept a `word_list` parameter (`"recent"` — default — or `"full"`), and the UI
+exposes it as a toggle on both tabs. See §4.
 
 ---
 
@@ -13,18 +28,24 @@ Measured on: Python 3.14.6, Windows 11, 688-word answer list / 14,855-word guess
 | Area | Verdict |
 |---|---|
 | Wordle pattern logic | **Correct.** 0 mismatches vs an independent reference over 200,000 random pairs |
-| Solver quality | **Very strong.** 3.07 avg guesses, 100% solved by turn 4, zero failures |
-| Solver performance | **Critical problem.** Worst realistic request takes 14.6s — will hit Vercel's function timeout |
-| Analyzer performance | **Fine.** 2–8ms per request |
+| Solver quality | **Very strong.** 3.07 avg guesses on the curated list, 100% solved by turn 4, zero failures |
+| Solver performance | **Slow, not broken.** 1.3s typical on the curated list; **3.9s typical / 50.4s worst** on the full list |
+| Analyzer performance | **Fine.** 2–8ms per request, both pools |
 | Input validation (`next_word`) | ~~None at all~~ → **fixed**. Mostly API-only hardening; one real user-facing typo bug (§1.2) |
 | Input validation (`analyze`) | **Good.** Properly validated |
-| Frontend | ~~broken font URL, wrong table labels~~ → **fixed**, see §1.5–1.6 |
+| Frontend | ~~broken font URL, wrong table labels, 243ⁿ denominator~~ → **fixed**, see §1.5–1.6 |
+| Answer-pool toggle | **Added** (§4). Changes reported difficulty ~2.75×, so labelling it in the UI matters |
 
-The single highest-value remaining change is precomputing the pattern matrix. It makes the solver
-**~100× faster** and removes the timeout risk entirely.
+The highest-value remaining change is precomputing the pattern matrix — **~100× faster** on the
+curated list and **~185×** on the full list, where it's close to a prerequisite (§4.3).
 
-**Status:** validation, font, and label issues are fixed in this repo. The performance work
-(§2) is documented but deliberately not yet applied.
+**Status:** validation, font, label, denominator, and toggle work are applied in this repo. The
+performance work (§2.3) is documented but deliberately not yet applied.
+
+> **Two corrections from earlier drafts, kept visible rather than quietly edited out:** the
+> input-validation severity was overstated (§1.2), and the claim that these latencies would trip a
+> Vercel timeout was **wrong** — it was asserted from memory and never verified, and the owner has
+> since confirmed Vercel handles them (§2.1).
 
 ---
 
@@ -233,28 +254,35 @@ request** until it's recycled.
 
 ## 2. Performance
 
-### 2.1 The solver's worst case exceeds Vercel's function timeout ⚠️ **Critical**
+### 2.1 The solver is slow, and the full list makes it much slower ⚠️
 
 Every request recomputes every pattern from scratch: `len(GUESSES) × n_surviving` calls to
 `get_pattern_int`, each allocating two 5-element Python lists.
 
+> **⚠️ Correction.** An earlier draft claimed these latencies would trip a 10s Vercel timeout and
+> return a 504. **That was an unverified assertion, and the project owner has since tested it in
+> production — Vercel handles these requests without breaking.** Modern Vercel (Fluid Compute)
+> allows far longer than the 10s I assumed. The latencies below are measured and stand; the
+> *timeout conclusion drawn from them was wrong* and has been removed. This is a **UX-latency**
+> problem, not an availability one.
+
 Measured end-to-end scoring latency in the current implementation:
 
-| Scenario | Pool size | Pattern lookups | Latency |
+| Scenario | Pool | n remaining | Latency |
 |---|---|---|---|
-| Typical 2nd guess (`crane` → 4 greys + 1 yellow) | 35 | 520K | **1.50s** |
-| `raise` all-grey | 49 | 728K | **1.83s** |
-| **Worst realistic 1-turn request** (`xviii`) | **466** | 6.9M | **14.63s** |
-| Full pool (empty history) | 688 | 10.2M | **18.12s** |
+| Typical 2nd guess (`crane` → 4 greys + 1 yellow) | curated | 35 | **1.26s** |
+| `raise` all-grey | curated | 49 | **1.74s** |
+| Worst realistic 1-turn request (`xviii`) | curated | 466 | **14.6s** |
+| Typical 2nd guess | **full** | 128 | **3.93s** |
+| `raise` all-grey | **full** | 170 | **5.00s** |
+| **Worst realistic 1-turn request** (`xviii`) | **full** | **1,567** | **50.4s** |
 
-Vercel's Hobby-plan serverless functions default to a **10-second** `maxDuration`, and
-`vercel.json` doesn't override it. The 14.6s worst case therefore **times out with a 504** before
-returning anything. A user who opens with an obscure word gets a hard failure.
+The full list is 3.4× the answers, and cost scales linearly with the surviving pool — so every
+number roughly triples. A typical turn goes from ~1.3s to ~3.9s, and the worst case from 14.6s to
+**50.4s**.
 
-Even the "good" cases are poor UX: **1.5–1.8 seconds of blocking spinner on a typical turn.**
-
-There are 8 guess words that can leave >400 answers remaining; the median worst-case bucket across
-all guesses is 149 answers.
+There are 8 guess words that can leave >400 answers on the curated list; the median worst-case
+bucket across all guesses is 149 (curated) and 507 (full).
 
 ### 2.2 The analyzer is fine ✅
 
@@ -336,20 +364,30 @@ replaying the exact policy in `next_word.py` to completion.
 
 ### 3.1 Headline results
 
-Opener `raise`, current `(expected, worst, in_pool)` policy:
+Opener `raise`, current `(expected, worst, in_pool)` policy, every answer played to completion:
 
-| Metric | Value |
-|---|---|
-| **Average guesses** | **3.0698** |
-| Solved in 2 | 66 (9.6%) |
-| Solved in 3 | 508 (73.8%) |
-| Solved in 4 | 114 (16.6%) |
-| Solved in 5+ | **0** |
-| **Failures (>6)** | **0** |
+| Metric | Curated (688) | Full (2,341) |
+|---|---|---|
+| **Average guesses** | **3.0698** | **3.4908** |
+| Solved in 1 | — | 1 |
+| Solved in 2 | 66 (9.6%) | 56 (2.4%) |
+| Solved in 3 | 508 (73.8%) | 1,139 (48.7%) |
+| Solved in 4 | 114 (16.6%) | 1,083 (46.3%) |
+| Solved in 5 | 0 | 62 (2.6%) |
+| Solved in 6+ | **0** | **0** |
+| **Failures (>6)** | **0** | **0** |
 
-**Every single answer is solved by turn 4, with three turns to spare.** For reference, optimal
-solvers on the full 2,315-word Wordle answer list average ~3.42; this list is a curated 688 words,
-so the pool is easier — but 3.07 with a hard ceiling of 4 is excellent.
+**Zero failures on either pool.** On the curated list every answer is solved by turn 4, with two
+turns to spare; on the full list, by turn 5.
+
+The full-list number is the meaningful benchmark, because it's the one comparable to published
+results — and **3.49 sits right in the band of strong published Wordle solvers (~3.42–3.55)** for
+greedy one-ply strategies. That's a genuine, independently-verifiable validation that the solver
+logic is sound, not just internally consistent.
+
+The curated list's 3.07 is better only because a 688-word pool is intrinsically easier than a
+2,341-word one — it is *not* evidence of a better algorithm, and the two numbers should never be
+compared to each other.
 
 ### 3.2 The sort policy is the right one ✅
 
@@ -372,6 +410,10 @@ small trades three 4s for three **5s** — strictly worse.
 
 An interesting finding. Openers ranked by the tool's own one-ply expected-remaining score, then
 evaluated by full simulation:
+
+*(curated list; the full list's own top openers by expected-remaining are `roate` 61.2, `raise`
+61.6, `raile` 61.9, `tiare` 61.9, `soare` 62.8 — a different ordering, which is itself a reason the
+pool toggle needs to be visible in the UI.)*
 
 | Tool's rank | Word | Expected remaining | **Actual avg guesses** |
 |---|---|---|---|
@@ -400,7 +442,92 @@ as a request-time computation.
 
 ---
 
-## 4. Recommendations, ranked
+## 4. The answer-pool toggle
+
+Both tools now score against either pool, selected by a toggle in the UI and a `word_list`
+parameter on both endpoints (`"recent"` default, or `"full"`).
+
+### 4.1 Why the choice actually matters
+
+This isn't a cosmetic switch — it changes every number the tools report, because it changes the
+prior over answers:
+
+- **`recent` (688 words)** assumes Wordle won't reuse an answer from the last few years. Given the
+  official game has never repeated an answer, this is the **correct model for playing today**, and
+  it's a far sharper prior — you start with 688 candidates instead of 2,341.
+- **`full` (2,341 words)** assumes every official answer is equally likely. This is the right model
+  for **theoretical comparisons** — it's what published solver benchmarks use, so it's the only
+  way to compare this tool's numbers against anyone else's.
+
+Same opener, same code, very different reported difficulty:
+
+| `crane` as an opener | Curated (688) | Full (2,341) |
+|---|---|---|
+| Expected answers remaining | **29.05** | **79.99** |
+| Worst-case bucket | **100** | **267** |
+| Answer pool | 688 | 2,341 |
+
+Roughly a 2.75× difference in expected remaining. Neither is wrong — they answer different
+questions. **The important part is that the UI now says which one you're looking at**, because
+"29 remaining" and "80 remaining" for the same word is otherwise inexplicable.
+
+### 4.2 The curated list is the harder engineering case, not the easier one
+
+Counter-intuitively, keeping the curated list current is the **fragile** part of this design:
+
+- It's **hand-maintained every few days**. Miss a few days and the tool silently recommends words
+  Wordle already used — the exact failure mode the list exists to prevent. There's no staleness
+  indicator anywhere in the UI.
+- It **shrinks monotonically**. At 688 and falling, the already-dead `n_surviving > 3000` branch
+  (§1.3) gets deader, and eventually the pool gets small enough that most turns end in the ≤2 case
+  (§1.4).
+- A **stale curated list is worse than the full list**, because it's confidently wrong rather than
+  merely conservative. The full list can never exclude the true answer; the curated one can.
+
+Worth considering: derive `answers.txt` from `full_answers.txt` minus a dated
+`used_words.txt`, so the removal is reproducible and the "last updated" date is visible rather than
+implicit in git history.
+
+### 4.3 Performance impact — this is where it bites
+
+The full list is 3.4× the answers, and scoring cost is linear in the surviving pool:
+
+| | Curated (688) | Full (2,341) | Factor |
+|---|---|---|---|
+| Typical turn | 1.26s | **3.93s** | 3.1× |
+| `raise` all-grey | 1.74s | **5.00s** | 2.9× |
+| Worst realistic turn | 14.6s | **50.4s** | 3.5× |
+| Worst-case pool after 1 turn | 466 | **1,567** | 3.4× |
+
+**A 50-second request is the headline risk of enabling the full list.** Vercel tolerates it (§2.1),
+so this is a UX problem rather than an outage — but a 50s spinner is effectively a broken feature,
+and users will assume the page hung.
+
+This substantially raises the value of the precomputed matrix from §2.3, which was already the top
+open item. Measured on the full list, the matrix scores the entire 2,341-word pool in **0.272s** —
+turning the 50.4s worst case into roughly **0.3s, a ~185× improvement**. The full-list matrix is
+`14,855 × 2,341` uint8 = **34.8 MB**, built offline in 8.7s.
+
+**Recommendation: treat the matrix as a prerequisite for making `full` the default.** As shipped,
+`recent` remains the default, which keeps typical latency near ~1.3s.
+
+### 4.4 Implementation notes
+
+- `word_list` is validated against `{"recent", "full"}` and rejected with a 400 otherwise, matching
+  the validation added in §1.2.
+- `full_answers.txt` loads **optionally** — if the file is missing, both endpoints fall back to the
+  curated list rather than failing. The toggle degrades to a no-op instead of a 500.
+- The API echoes `word_list` (and `pool_size`) in its response, so the client can confirm which
+  pool produced a result rather than assuming.
+- Switching pools **hides stale results** on both tabs, since numbers computed against the other
+  pool no longer describe anything on screen. The finder's guess *history* stays valid — it's just
+  re-scored against the new pool automatically.
+- ⚠️ **`data/full_answers.txt` is currently untracked.** It must be committed, or the deployed
+  functions will silently fall back to the curated list for both toggle positions.
+
+---
+
+## 5. Recommendations, ranked
 
 ### ✅ Done
 
@@ -409,37 +536,44 @@ as a request-time computation.
   hardening, since the UI already blocked 9 of 11 bad payloads.
 - **Google Fonts URL** (§1.6) — one character; restores the entire intended design.
 - **"Top 30" / "Worst Case Minimization" labels** (§1.5) — both were simply wrong.
+- **243ⁿ bucket denominator** (§1.5) — now `min(243ⁿ, pool_size)`.
+- **Answer-pool toggle** (§4) — `recent` / `full` on both endpoints and both tabs.
 - **`__pycache__` gitignored and untracked** (§1.8).
 
-### ⬜ Critical — still open
+### ⬜ Do this first
 
-1. **Precompute the pattern matrix** (§2.3). Removes the 14.6s timeout and makes the solver feel
-   instant. ~100× speedup, validated as exact. *(Deliberately deferred.)*
-2. **Set an explicit `maxDuration`** in `vercel.json` so the limit is visible in the repo rather
-   than an implicit plan default. Worth doing even before the matrix work.
+1. **Commit `data/full_answers.txt`** (§4.4). It's untracked — without it the deployed toggle
+   silently does nothing.
 
-### ⬜ High value, low effort
+### ⬜ High value
 
-3. **Delete the unreachable `> 3000` branch and `TOP_GLOBAL_OPENERS`** (§1.3) — dead code, and two
-   of its entries aren't even valid guesses.
-4. **Fix the 243ⁿ bucket denominator** (§1.5) — use `min(243ⁿ, pool_size)`.
-5. Make `analyze.py` load lazily like `next_word.py` (§1.7).
+2. **Precompute the pattern matrix** (§2.3, §4.3). Now materially more valuable than before the
+   toggle: it turns the full list's 50.4s worst case into ~0.3s. Effectively a prerequisite for
+   making `full` the default. *(Deliberately deferred.)*
+3. **Set an explicit `maxDuration`** in `vercel.json` — not because the default is too low (it
+   isn't, §2.1), but so the limit is a visible, reviewable choice rather than a platform default
+   that could change.
+4. **Delete the unreachable `> 3000` branch and `TOP_GLOBAL_OPENERS`** (§1.3) — dead code on both
+   pools (2,341 < 3,000 too), and two of its entries aren't even valid guesses.
+5. **Surface curated-list staleness** (§4.2) — a "last updated" date, or derive `answers.txt` from
+   `full_answers.txt` minus a dated `used_words.txt`.
+6. Make `analyze.py` load lazily like `next_word.py` (§1.7).
 
 ### ⬜ Worthwhile
 
-6. Client-side dictionary validation in the finder (§1.8) — saves a round trip.
-7. Cache headers or an LRU on the history key (§2.4).
-8. `inputmode` / `aria-label` on tiles (§1.8).
-9. Soften the ≤2-remaining empty-state copy (§1.4) — behavior is correct, wording reads like an error.
+7. Client-side dictionary validation in the finder (§1.8) — saves a round trip.
+8. Cache headers or an LRU on `(history, word_list)` (§2.4) — results are fully deterministic.
+9. `inputmode` / `aria-label` on tiles (§1.8).
+10. Soften the ≤2-remaining empty-state copy (§1.4) — behavior is correct, wording reads like an error.
 
 ### ⬜ Optional
 
-10. Two-ply opener search as an offline build step (§3.3).
-11. Surface the metric's limitation in UI copy (§3.3).
+11. Two-ply opener search as an offline build step (§3.3).
+12. Surface the metric's limitation in UI copy (§3.3).
 
 ---
 
-## 5. What is already good
+## 6. What is already good
 
 Worth stating plainly, since most of this document is problems:
 
