@@ -85,7 +85,6 @@ cough
 coupe
 covey
 crack
-crash
 creek
 creep
 creme
@@ -226,7 +225,6 @@ liege
 lipid
 loamy
 login
-loose
 lumen
 lupus
 lurch
@@ -687,4 +685,3 @@ sissy
 rebut
 cigar
 aspic
-geode
