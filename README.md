@@ -21,7 +21,14 @@ reported difficulty, since it changes how many answers are possible.
 
 ## Best opening words (as of Aug 15, 2026)
 
-**Curated list (688 words):**
+There are two different questions here, and they don't always agree:
+
+- **By the analyzer's metric** — expected answers remaining after one guess. Fast to compute,
+  what the Opening Analyzer shows, but only looks one move ahead.
+- **By actual play** — average guesses to solve, simulated by playing every answer to completion.
+  Slower to compute, but this is the number that actually matters.
+
+**Curated list (688 words) — top 5 by metric:**
 
 | Rank | Word |
 |---|---|
@@ -31,7 +38,28 @@ reported difficulty, since it changes how many answers are possible.
 | 4 | `ariel` |
 | 5 | `seria` |
 
-**Full list (2,341 words):**
+**Curated list — top 10 by actual play** (avg guesses, all 688 answers simulated):
+
+| Rank | Word | Avg guesses |
+|---|---|---|
+| 1 | `tarse` | 3.0363 |
+| 2 | `salet` | 3.0509 |
+| 3 | `sater` | 3.0523 |
+| 4 | `raine` | 3.0538 |
+| 5 | `taser` | 3.0610 |
+| 6 | `tiare` | 3.0625 |
+| 7 | `taler` | 3.0625 |
+| 8 | `raile` | 3.0640 |
+| 9 | `raise` | 3.0698 |
+| 10 | `laser` | 3.0770 |
+
+**`tarse` beats `raise` by ~1 extra turn per 30 games** — the metric's #1 pick isn't the best
+actual opener. It ranks well on the metric too (#16), so it's a real find, not noise: greedy
+one-ply scoring optimizes the pool size after this guess, not how cleanly that pool splits next
+turn, and `tarse` apparently splits its post-turn-1 pools better than words that shrink the pool
+more aggressively upfront.
+
+**Full list (2,341 words) — top 5 by metric:**
 
 | Rank | Word |
 |---|---|
@@ -41,8 +69,11 @@ reported difficulty, since it changes how many answers are possible.
 | 4 | `tiare` |
 | 5 | `soare` |
 
+**Full list — top by actual play:** simulation in progress across the top 15 metric candidates,
+2,341 answers each. This is the slower list to simulate — results to follow.
+
 The finder's UI doesn't let you request a first word — computing it means scoring every guess
-against the whole answer list, which is slow. Use the tables above to start instead.
+against the whole answer list, which is slow. Use the actual-play tables above to start instead.
 
 Regenerate these whenever `answers.txt` is updated.
 
