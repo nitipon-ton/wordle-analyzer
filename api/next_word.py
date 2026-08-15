@@ -4,6 +4,7 @@ import os
 
 # Tiny global caches for text dictionaries
 GUESSES = None
+GUESSES_SET = None
 ANSWERS = None
 LOAD_ERROR = None
 
@@ -18,7 +19,7 @@ TOP_GLOBAL_OPENERS = [
 
 def init_words():
     """Load the raw text word lists into memory (takes <5ms)."""
-    global GUESSES, ANSWERS, LOAD_ERROR
+    global GUESSES, GUESSES_SET, ANSWERS, LOAD_ERROR
     if GUESSES is not None:
         return
     try:
@@ -36,8 +37,52 @@ def init_words():
             GUESSES = [w.strip().lower() for w in f if len(w.strip()) == 5]
         with open(answers_path) as f:
             ANSWERS = [w.strip().lower() for w in f if len(w.strip()) == 5]
+        GUESSES_SET = set(GUESSES)
     except Exception as e:
         LOAD_ERROR = str(e)
+
+
+def validate_history(history):
+    """Returns an error string, or None if the payload is well-formed.
+
+    Every guess must be a real 5-letter word from guesses.txt and every pattern
+    must be exactly 5 trits in {0,1,2}. Anything else is rejected up front so a
+    malformed payload can't crash the handler or silently produce nonsense.
+    """
+    if not isinstance(history, list):
+        return "Invalid payload: 'history' must be a list."
+
+    if len(history) > 6:
+        return "A Wordle game is at most 6 guesses."
+
+    seen = set()
+    for i, turn in enumerate(history):
+        pos = f"Guess {i + 1}"
+
+        if not isinstance(turn, dict):
+            return f"{pos} is malformed."
+
+        word = turn.get("word")
+        if not isinstance(word, str):
+            return f"{pos} is missing a word."
+        word = word.strip().lower()
+
+        if len(word) != 5:
+            return f"'{word.upper()}' is not 5 letters."
+        if word not in GUESSES_SET:
+            return f"'{word.upper()}' is not a valid Wordle word."
+        if word in seen:
+            return f"'{word.upper()}' was entered twice."
+        seen.add(word)
+
+        pattern = turn.get("pattern")
+        if not isinstance(pattern, list) or len(pattern) != 5:
+            return f"{pos} needs a 5-tile color pattern."
+        for trit in pattern:
+            if not isinstance(trit, int) or isinstance(trit, bool) or trit not in (0, 1, 2):
+                return f"{pos} has an invalid tile color."
+
+    return None
 
 def get_pattern_int(guess, answer):
     """Computes Wordle pattern matching and encodes directly to base-3 integer."""
@@ -82,7 +127,12 @@ class handler(BaseHTTPRequestHandler):
             return
 
         history = data.get("history", []) # Expected format: [{"word": "crane", "pattern": [0,1,2,0,0]}]
-        
+
+        error = validate_history(history)
+        if error:
+            self._json(400, {"error": error})
+            return
+
         # 1. Filter remaining candidate answer pool on the fly
         remaining_words = list(ANSWERS)
         excluded_words = set()
