@@ -103,6 +103,31 @@ a guess (2 games out of 2,341).
 This list combines 25 candidates: the top 15 by one-ply metric, the same 10 externally-suggested
 words, plus `carse`. Reflects the best of what's been tested, not an exhaustive search.
 
+### `TARSE` full profile (full list)
+
+Opening with `tarse` against all 2,341 answers, played to completion:
+
+| Guesses | Words | % |
+|---|---|---|
+| 1 | 0 | 0.00% |
+| 2 | 62 | 2.65% |
+| 3 | 1,227 | 52.41% |
+| 4 | 997 | 42.59% |
+| 5 | 54 | 2.31% |
+| 6 | 1 | 0.04% |
+| Failed (7+) | 0 | 0.00% |
+
+**Average 3.4468 guesses. 97.65% solved within 4. Zero failures** — every answer lands inside
+Wordle's 6-guess limit, with only one needing all six (`rover`).
+
+No 1-guess wins: `tarse` isn't itself in the answer list, so it can never be the solution. That
+costs a little on paper but is the point — it's a pure information-gathering opener, not a
+lottery ticket.
+
+The 54 five-guess cases cluster hard around words `tarse` tells you nothing about: `young`,
+`wound`, `woozy`, `woody`, `wimpy`, `willy`, `wider`, `watch`, `viper`, `vaunt`, `upper`, `ulcer`.
+Mostly `W`/`V`/`U`/`Y`-heavy words sharing a vowel skeleton `tarse` can't probe.
+
 The finder's UI doesn't let you request a first word — computing it means scoring every guess
 against the whole answer list, which is slow. Use the actual-play tables above to start instead.
 
