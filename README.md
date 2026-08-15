@@ -103,30 +103,44 @@ a guess (2 games out of 2,341).
 This list combines 25 candidates: the top 15 by one-ply metric, the same 10 externally-suggested
 words, plus `carse`. Reflects the best of what's been tested, not an exhaustive search.
 
-### `TARSE` full profile (full list)
+### Three openers worth knowing (full list)
 
-Opening with `tarse` against all 2,341 answers, played to completion:
+Best average isn't the only thing you might want. Three openers, each optimal for a different goal,
+all simulated against every one of the 2,341 answers:
 
-| Guesses | Words | % |
-|---|---|---|
-| 1 | 0 | 0.00% |
-| 2 | 62 | 2.65% |
-| 3 | 1,227 | 52.41% |
-| 4 | 997 | 42.59% |
-| 5 | 54 | 2.31% |
-| 6 | 1 | 0.04% |
-| Failed (7+) | 0 | 0.00% |
+| Guesses | `TARSE` | % | `TRACE` | % | `CARLE` | % |
+|---|---|---|---|---|---|---|
+| 1 | 0 | 0.00% | 1 | 0.04% | 0 | 0.00% |
+| 2 | 62 | 2.65% | 74 | 3.16% | 72 | 3.08% |
+| 3 | 1,227 | 52.41% | 1,193 | 50.96% | 1,166 | 49.81% |
+| 4 | 997 | 42.59% | 1,020 | 43.57% | 1,069 | 45.66% |
+| 5 | 54 | 2.31% | 53 | 2.26% | **34** | **1.45%** |
+| 6 | **1** | 0.04% | **0** | 0.00% | **0** | 0.00% |
+| Failed (7+) | 0 | 0.00% | 0 | 0.00% | 0 | 0.00% |
+| **Average** | **3.4468** | | 3.4485 | | 3.4549 | |
+| **Solved ≤4** | 97.65% | | 97.74% | | **98.55%** | |
+| **Worst case** | 6 | | **5** | | **5** | |
 
-**Average 3.4468 guesses. 97.65% solved within 4. Zero failures** — every answer lands inside
-Wordle's 6-guess limit, with only one needing all six (`rover`).
+**Pick by what you care about:**
 
-No 1-guess wins: `tarse` isn't itself in the answer list, so it can never be the solution. That
-costs a little on paper but is the point — it's a pure information-gathering opener, not a
-lottery ticket.
+- **`TARSE` — best average (3.4468).** Wins on raw efficiency, but exactly one answer (`rover`)
+  drags it to all six turns.
+- **`TRACE` — best average among openers that never need 6 (3.4485).** Costs 0.0017 guesses versus
+  `tarse` and buys a hard ceiling of 5. It's also the only one of the three that can win outright on
+  turn 1, since `trace` is itself in the answer list.
+- **`CARLE` — best chance of finishing by turn 4 (98.55%).** Only **34** answers push it to 5, vs
+  53–54 for the others — a **~36% reduction** in the worst realistic case. It pays for this with the
+  weakest average of the three, trading 3-guess wins for 4-guess ones.
 
-The 54 five-guess cases cluster hard around words `tarse` tells you nothing about: `young`,
-`wound`, `woozy`, `woody`, `wimpy`, `willy`, `wider`, `watch`, `viper`, `vaunt`, `upper`, `ulcer`.
-Mostly `W`/`V`/`U`/`Y`-heavy words sharing a vowel skeleton `tarse` can't probe.
+**Note:** `CARLE` also never needs 6 turns, so both `TRACE` and `CARLE` guarantee a solve in 5. The
+distinction is that `TRACE` has the better average, while `CARLE` more often finishes a turn earlier.
+
+If you play to a 6-turn limit and hate close calls, `CARLE` is the safest. If you want the lowest
+long-run score, `TARSE`. `TRACE` is the balanced pick.
+
+`TARSE`'s 54 five-guess cases cluster hard around words it tells you nothing about: `young`,
+`wound`, `woozy`, `woody`, `wimpy`, `willy`, `wider`, `watch`, `viper`, `vaunt`, `upper`, `ulcer` —
+mostly `W`/`V`/`U`/`Y`-heavy words sharing a vowel skeleton `tarse` can't probe.
 
 The finder's UI doesn't let you request a first word — computing it means scoring every guess
 against the whole answer list, which is slow. Use the actual-play tables above to start instead.
