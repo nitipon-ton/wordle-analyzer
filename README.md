@@ -38,7 +38,8 @@ There are two different questions here, and they don't always agree:
 | 4 | `ariel` |
 | 5 | `seria` |
 
-**Curated list — top 10 by actual play** (avg guesses, all 688 answers simulated):
+**Curated list — top 10 by actual play** (avg guesses, all 688 answers simulated; ties broken by
+exact guess-count sum, since several average out to the same 4 decimals):
 
 | Rank | Word | Avg guesses |
 |---|---|---|
@@ -46,18 +47,22 @@ There are two different questions here, and they don't always agree:
 | 2 | `salet` | 3.0509 |
 | 3 | `sater` | 3.0523 |
 | 4 | `raine` | 3.0538 |
-| 5 | `taser` | 3.0610 |
-| 6 | `tiare` | 3.0625 |
+| 5 | `carse` | 3.0581 |
+| 6 | `taser` | 3.0610 |
 | 7 | `taler` | 3.0625 |
-| 8 | `raile` | 3.0640 |
-| 9 | `raise` | 3.0698 |
-| 10 | `laser` | 3.0770 |
+| 7 | `tiare` | 3.0625 |
+| 9 | `raile` | 3.0640 |
+| 9 | `reast` | 3.0640 |
 
-**`tarse` beats `raise` by ~1 extra turn per 30 games** — the metric's #1 pick isn't the best
-actual opener. It ranks well on the metric too (#16), so it's a real find, not noise: greedy
-one-ply scoring optimizes the pool size after this guess, not how cleanly that pool splits next
-turn, and `tarse` apparently splits its post-turn-1 pools better than words that shrink the pool
-more aggressively upfront.
+**`tarse` beats `raise` (#11, 3.0698) by ~1 extra turn per 30 games** — the metric's #1 pick isn't
+the best actual opener. `tarse` ranks only #16 by the one-ply metric, so this is a real find, not
+noise: greedy one-ply scoring optimizes the pool size after this guess, not how cleanly that pool
+splits next turn, and `tarse` apparently splits its post-turn-1 pools better than words that shrink
+the pool more aggressively upfront.
+
+This list combines 34 candidates tested in total: the top 25 by one-ply metric, 9 words suggested
+by another Wordle-bot developer, and `carse`. It reflects the best of what's been tested, not an
+exhaustive search of all 14,855 guesses.
 
 **Full list (2,341 words) — top 5 by metric:**
 
@@ -69,29 +74,34 @@ more aggressively upfront.
 | 4 | `tiare` |
 | 5 | `soare` |
 
-**Full list — top 10 by actual play** (avg guesses, all 2,341 answers simulated):
+**Full list — top 10 by actual play** (avg guesses, all 2,341 answers simulated; ties broken by
+exact guess-count sum):
 
 | Rank | Word | Avg guesses |
 |---|---|---|
 | 1 | `tarse` | 3.4468 |
-| 2 | `ranse` | 3.4729 |
-| 3 | `tiare` | 3.4737 |
-| 4 | `artel` | 3.4827 |
-| 5 | `roate` | 3.4848 |
-| 6 | `soare` | 3.4861 |
-| 7 | `raile` | 3.4891 |
-| 8 | `raise` | 3.4908 |
-| 9 | `raine` | 3.4912 |
-| 10 | `taler` | 3.4938 |
+| 2 | `slate` | 3.4485 |
+| 2 | `trace` | 3.4485 |
+| 4 | `reast` | 3.4490 |
+| 5 | `crate` | 3.4498 |
+| 6 | `salet` | 3.4537 |
+| 6 | `slane` | 3.4537 |
+| 8 | `carle` | 3.4549 |
+| 9 | `crane` | 3.4571 |
+| 10 | `carte` | 3.4596 |
 
-**`tarse` wins on both lists.** It beats `roate` — the metric's #1 pick here — by 0.038 guesses,
+**`tarse` wins on both lists**, beating `roate` — the metric's #1 pick here — by 0.038 guesses,
 roughly one extra turn every 26 games. Same pattern as the curated list: `tarse` isn't near the top
-of the one-ply metric (it's outside the top 10 by expected-remaining) but consistently plays better
-in full simulation.
+of the one-ply metric (outside the top 10 by expected-remaining) but consistently plays better in
+full simulation.
 
-A batch of 10 words suggested by another Wordle-bot developer (`salet`, `reast`, `crate`, `trace`,
-`slate`, `crane`, `carle`, `slane`, `carte`, `torse`) is being simulated against both lists to check
-whether any beat `tarse` — results to follow.
+**Notably, the entire "suggested by another bot-maker" batch outperforms every classic top-metric
+opener here** (`roate`, `raise`, `raile`, `tiare`, `soare` all fall to #13 or lower). `carse` — also
+requested and tested — landed just outside, at **#11** (3.4605), edged out by `carte` by 0.0025 of
+a guess (2 games out of 2,341).
+
+This list combines 25 candidates: the top 15 by one-ply metric, the same 10 externally-suggested
+words, plus `carse`. Reflects the best of what's been tested, not an exhaustive search.
 
 The finder's UI doesn't let you request a first word — computing it means scoring every guess
 against the whole answer list, which is slow. Use the actual-play tables above to start instead.
