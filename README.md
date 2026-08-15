@@ -29,23 +29,31 @@ exposes it as a toggle on both tabs. See §4.
 |---|---|
 | Wordle pattern logic | **Correct.** 0 mismatches vs an independent reference over 200,000 random pairs |
 | Solver quality | **Very strong.** 3.07 avg guesses on the curated list, 100% solved by turn 4, zero failures |
-| Solver performance | **Slow, not broken.** 1.3s typical on the curated list; **3.9s typical / 50.4s worst** on the full list |
+| Solver performance | **Slow, not broken.** 1.3s typical curated; **3.9s typical / 50.4s worst** on the full list. Fixable to **0.05s / 4.6s** with no new dependency (§2.5) |
 | Analyzer performance | **Fine.** 2–8ms per request, both pools |
 | Input validation (`next_word`) | ~~None at all~~ → **fixed**. Mostly API-only hardening; one real user-facing typo bug (§1.2) |
 | Input validation (`analyze`) | **Good.** Properly validated |
 | Frontend | ~~broken font URL, wrong table labels, 243ⁿ denominator~~ → **fixed**, see §1.5–1.6 |
 | Answer-pool toggle | **Added** (§4). Changes reported difficulty ~2.75×, so labelling it in the UI matters |
 
-The highest-value remaining change is precomputing the pattern matrix — **~100× faster** on the
-curated list and **~185×** on the full list, where it's close to a prerequisite (§4.3).
+The highest-value remaining change is **restricting the candidate guess set** (§2.5) — up to 167×
+faster with **zero measured quality loss**, no new dependency, and nothing shipped. A precomputed
+matrix would be faster still but **cannot be deployed** under Vercel's file-size limits (§2.3).
 
 **Status:** validation, font, label, denominator, and toggle work are applied in this repo. The
-performance work (§2.3) is documented but deliberately not yet applied.
+performance work (§2.5) is documented but deliberately not yet applied.
 
-> **Two corrections from earlier drafts, kept visible rather than quietly edited out:** the
-> input-validation severity was overstated (§1.2), and the claim that these latencies would trip a
-> Vercel timeout was **wrong** — it was asserted from memory and never verified, and the owner has
-> since confirmed Vercel handles them (§2.1).
+> **Corrections from earlier drafts, kept visible rather than quietly edited out.** Three claims
+> in this document were wrong and have been retracted in place:
+>
+> 1. **Input-validation severity was overstated** (§1.2) — the UI blocks 9 of the 11 payloads.
+> 2. **The Vercel timeout claim was wrong** (§2.1) — asserted from memory, never verified, and
+>    disproven by the owner's own production testing.
+> 3. **The `> 3000` branch is not dead code** (§1.3) — it's a deliberate guard for larger test
+>    lists, and the recommendation to delete it was mistaken.
+>
+> A fourth recommendation — shipping a precomputed matrix — is **not wrong but not deployable**,
+> blocked by Vercel file-size limits the owner had already hit (§2.3–2.4).
 
 ---
 
@@ -160,7 +168,24 @@ Verified — all 12 previously-bad payloads now rejected, all valid ones unaffec
 | `" CRANE "` with whitespace/caps | ✅ accepted (normalized) |
 | `crane` + `[0,0,0,0,1]` | ✅ accepted → 35 remaining |
 
-### 1.3 Dead code: the `n_surviving > 3000` branch is unreachable 🐛
+### 1.3 The `n_surviving > 3000` branch — deliberate, currently inactive ✅ **Not a bug**
+
+> *An earlier draft of this section called this dead code and recommended deleting it. **That was
+> wrong.** The threshold is an intentional guard kept in place for testing larger word lists that
+> don't ship in this repo. It is inactive at current list sizes, not vestigial. The one genuine
+> finding below — two invalid words in `TOP_GLOBAL_OPENERS` — still stands.*
+
+The branch never fires today: `full_answers.txt` is 2,341 words and `answers.txt` is 688, both
+under 3,000. So every request currently scans all 14,855 guesses, which is the direct cause of the
+latency in §2.1 — but that's a consequence of the threshold being *high*, not of the branch being
+useless. §2.5 recommends adding a second, lower threshold rather than touching this one.
+
+**One real defect:** two entries in `TOP_GLOBAL_OPENERS` — `kares` and `peast` — are **not in
+`guesses.txt`**. If the guard ever activates on a larger list, it would offer two words Wordle
+won't accept. Worth fixing now, while the branch is dormant and harmless.
+
+<details>
+<summary>Original finding (superseded)</summary>
 
 ```python
 if n_surviving > 3000:
@@ -183,6 +208,8 @@ the list is shrinking further over time — the branch gets deader, not livelier
 
 **Fix:** delete the branch and `TOP_GLOBAL_OPENERS`, or repurpose the fast path with a threshold
 that reflects the actual pool size (e.g. `n_surviving > 400`).
+
+</details>
 
 ### 1.4 The `n_surviving > 2` guard — by design ✅ **Not a bug**
 
@@ -294,7 +321,28 @@ bucket across all guesses is 149 (curated) and 507 (full).
 
 It only does `n_words × 688` pattern computations. No action needed.
 
-### 2.3 Prototyped fix: precompute the pattern matrix
+### 2.3 Design constraints that rule options out
+
+Three deliberate constraints, confirmed by the project owner, that any performance proposal has to
+respect:
+
+1. **The UI forbids an empty guess history.** You cannot ask the solver for a first word — that
+   would mean scoring all 14,855 guesses against the entire pool, the single most expensive
+   operation possible (18s curated / ~62s full). Blocking it in the UI is an intentional trade:
+   worse discoverability in exchange for never issuing that request. **Any benchmark row for
+   "empty history" below is therefore unreachable in practice** and is kept only as an upper bound.
+2. **Vercel's file-size limits block shipping a precomputed matrix.** Already attempted and
+   rejected in practice. The 10.2 MB / 34.8 MB artifacts proposed in §2.4 **cannot be deployed**,
+   which invalidates that recommendation as originally written. See §2.5 for what works instead.
+3. **The `n_surviving > 3000` branch is deliberate**, not dead code. It's a guard kept in place for
+   testing larger word lists that don't ship here. It is simply inactive at current list sizes
+   (688 and 2,341). *An earlier draft called this dead code and recommended deleting it — that was
+   wrong.*
+
+**The one real cost of constraint 1** is that users must source a good opening word themselves —
+the tool can't tell them. §2.6 closes that gap for free.
+
+### 2.4 Prototyped fix: precompute the pattern matrix ❌ **Not deployable**
 
 The answer list is fixed between deploys, so **every pattern can be computed once, offline.**
 A `14,855 × 688` matrix of `uint8` base-3 codes is only **10.2 MB** — trivially within Vercel's
@@ -337,15 +385,73 @@ c    = np.bincount((sub + offs).ravel(), minlength=NG * 243).reshape(NG, 243)
 worst, expected = c.max(axis=1), (c.astype(float) ** 2).sum(axis=1) / len(cols)
 ```
 
-Requires adding `numpy` to `requirements.txt`. The comment in `analyze.py` ("no numpy dependency on
-serverless") suggests this was deliberately avoided, but NumPy is fully supported on Vercel's
-Python runtime and the payoff here is two orders of magnitude.
+**❌ This cannot ship.** Vercel's file-size limits reject the artifact (§2.3, constraint 2) — the
+owner tested this. The numbers above are retained only as an upper bound on what's theoretically
+achievable, and to show the algorithm isn't the bottleneck. **Do not act on this section.**
 
-**No-NumPy fallback:** shipping the same precomputed matrix as a raw `bytes` blob and scoring in
-pure Python gives **1.98s** on the full pool — a 9× improvement that stays under the timeout, but
-still a visible pause. Worth it only if adding NumPy is off the table.
+### 2.5 What actually works: restrict the candidate set ✅ **Recommended**
 
-### 2.4 Other performance notes
+The expensive dimension isn't the answer pool, it's the **14,855 candidate guesses** scored against
+it. Almost all of those are terrible guesses that get scored in full every request.
+
+Restricting candidates to `remaining_answers ∪ known_good_openers` — exactly the mechanism the
+existing `n_surviving > 3000` branch already implements, just with a threshold low enough to
+activate — is dramatically cheaper. **In pure Python, no new dependency, nothing shipped:**
+
+| Pool | Scenario | n | All 14,855 | Restricted | Candidates | Speedup |
+|---|---|---|---|---|---|---|
+| curated | worst | 466 | 13.18s | **0.45s** | 508 | **29×** |
+| curated | typical | 35 | 1.32s | **0.01s** | 84 | **167×** |
+| full | worst | 1,567 | 43.07s | **4.63s** | 1,596 | **9×** |
+| full | typical | 128 | 3.81s | **0.05s** | 177 | **79×** |
+
+**The quality cost is zero.** Simulating all 688 curated answers at thresholds of 400, 200, 100 and
+50 produced **byte-identical outcome distributions** to scoring all 14,855 candidates —
+`{2: 66, 3: 508, 4: 114}`, average 3.0698, every time. Not "close enough": identical.
+
+That result makes intuitive sense. When many answers remain, the pool itself contains plenty of
+high-information guesses, so the exotic non-answer separators that justify scanning the full
+dictionary only matter in narrow endgames — precisely where the threshold turns the restriction
+*off* and full scanning resumes.
+
+**Recommendation: keep the `> 3000` guard for large-list testing, and add a second, lower
+activation threshold (~100–200) that applies to the lists actually in use.** This is the single
+best performance change available under the deployment constraints: a typical full-list turn drops
+from 3.81s to **0.05s**, and the 50s worst case to **4.6s**, with no new dependency, no shipped
+artifact, and no measured quality loss.
+
+**Optional stacking:** NumPy vectorisation *computed at request time* (no precomputed file, so no
+size limit) independently gives ~7× — full-list worst case 50.4s → **7.14s**, typical 3.93s →
+**0.57s**. It costs a `requirements.txt` dependency and would compose with the restriction above,
+but the restriction alone is cheaper and more effective.
+
+### 2.6 Closing the "what's my first word?" gap 🆕
+
+Since the UI intentionally can't compute an opening word (§2.3, constraint 1), users have to find
+one elsewhere. This is solvable **entirely offline at zero runtime cost**: the best openers are a
+fixed property of each word list, so they can be computed once and shipped as a static table.
+
+Generated for both pools — the complete JSON is **2,162 bytes**:
+
+| Rank | Curated (688) | Expected left | Full (2,341) | Expected left |
+|---|---|---|---|---|
+| 1 | `raise` | 19.42 | `roate` | 61.17 |
+| 2 | `raile` | 20.31 | `raise` | 61.64 |
+| 3 | `arise` | 20.72 | `raile` | 61.88 |
+| 4 | `ariel` | 21.06 | `tiare` | 61.92 |
+| 5 | `seria` | 21.18 | `soare` | 62.77 |
+
+Note the lists **disagree on the best opener** — further reason the pool toggle must stay visible.
+
+Two ways to surface it, both cheap:
+- Show the top few as clickable suggestions under the empty finder input ("Not sure? Start with
+  **RAISE**"), filtered by the active pool. One click fills the tiles.
+- Or simply pre-fill the input with the top opener for the active pool.
+
+This recovers essentially all the discoverability lost to constraint 1, without ever issuing the
+expensive empty-history request. Regenerate the table whenever `answers.txt` is updated.
+
+### 2.7 Other performance notes
 
 - `scored.sort()` sorts all ~14,800 candidates to return 20. `heapq.nsmallest(20, ...)` avoids the
   full sort — negligible next to the scoring cost, but free.
@@ -411,9 +517,9 @@ small trades three 4s for three **5s** — strictly worse.
 An interesting finding. Openers ranked by the tool's own one-ply expected-remaining score, then
 evaluated by full simulation:
 
-*(curated list; the full list's own top openers by expected-remaining are `roate` 61.2, `raise`
-61.6, `raile` 61.9, `tiare` 61.9, `soare` 62.8 — a different ordering, which is itself a reason the
-pool toggle needs to be visible in the UI.)*
+*(curated list. The full list ranks openers differently — `roate` 61.2, `raise` 61.6, `raile` 61.9,
+`tiare` 61.9, `soare` 62.8 — which is itself a reason the pool toggle needs to be visible in the
+UI: **the "best opening word" is not the same question on both pools.**)*
 
 | Tool's rank | Word | Expected remaining | **Actual avg guesses** |
 |---|---|---|---|
@@ -436,9 +542,24 @@ The practical effect is small (0.018 guesses, ~1 extra turn per 57 games), so th
 worth surfacing in the UI copy rather than a bug. Something like *"ranked by expected pool size
 after this guess — a good proxy, not a guarantee of fewest total turns."*
 
-Finding a truly optimal opener requires two-ply lookahead over the top ~50 candidates. With the
-precomputed matrix from §2.3 that's roughly a minute offline — very feasible as a build step, not
-as a request-time computation.
+**The divergence looks smaller on the full list**, which is worth noting because it suggests the
+curated pool is part of the cause:
+
+| Opener | Metric rank (full) | Expected remaining | Actual avg | 5-guess games |
+|---|---|---|---|---|
+| `roate` | **1** | 61.2 | **3.4848** ← best | 41 |
+| `raise` | 2 | 61.6 | 3.4908 | 62 |
+
+Here the metric's top pick *does* win. This is only a two-opener check, so treat it as suggestive
+rather than settled — but it's consistent with the idea that a 688-word pool has enough
+granularity noise to scramble a ranking that holds up better over 2,341 words. Note also that
+`roate` produces **a third fewer 5-guess games** (41 vs 62) at nearly the same average, i.e. it's
+the more *consistent* opener — a dimension the current single-number ranking doesn't express at
+all.
+
+Finding a truly optimal opener requires two-ply lookahead over the top ~50 candidates — roughly a
+minute of offline computation. That's fine as a build step feeding the static opener table in §2.6;
+it is never viable as a request-time computation.
 
 ---
 
@@ -503,13 +624,13 @@ The full list is 3.4× the answers, and scoring cost is linear in the surviving 
 so this is a UX problem rather than an outage — but a 50s spinner is effectively a broken feature,
 and users will assume the page hung.
 
-This substantially raises the value of the precomputed matrix from §2.3, which was already the top
-open item. Measured on the full list, the matrix scores the entire 2,341-word pool in **0.272s** —
-turning the 50.4s worst case into roughly **0.3s, a ~185× improvement**. The full-list matrix is
-`14,855 × 2,341` uint8 = **34.8 MB**, built offline in 8.7s.
+The precomputed matrix would solve this outright (0.272s for the whole 2,341-word pool) but
+**can't be deployed** — the 34.8 MB artifact exceeds Vercel's file-size limits (§2.3). The viable
+answer is candidate restriction (§2.5), which brings the full list's typical turn to **0.05s** and
+its worst case to **4.6s** using nothing but a lower threshold on logic already in the file.
 
-**Recommendation: treat the matrix as a prerequisite for making `full` the default.** As shipped,
-`recent` remains the default, which keeps typical latency near ~1.3s.
+**Recommendation: land the candidate restriction before making `full` the default.** As shipped,
+`recent` remains the default, keeping typical latency near ~1.3s.
 
 ### 4.4 Implementation notes
 
@@ -547,17 +668,26 @@ turning the 50.4s worst case into roughly **0.3s, a ~185× improvement**. The fu
 
 ### ⬜ High value
 
-2. **Precompute the pattern matrix** (§2.3, §4.3). Now materially more valuable than before the
-   toggle: it turns the full list's 50.4s worst case into ~0.3s. Effectively a prerequisite for
-   making `full` the default. *(Deliberately deferred.)*
-3. **Set an explicit `maxDuration`** in `vercel.json` — not because the default is too low (it
-   isn't, §2.1), but so the limit is a visible, reviewable choice rather than a platform default
-   that could change.
-4. **Delete the unreachable `> 3000` branch and `TOP_GLOBAL_OPENERS`** (§1.3) — dead code on both
-   pools (2,341 < 3,000 too), and two of its entries aren't even valid guesses.
+2. **Add a low candidate-restriction threshold (~100–200)** alongside the existing `> 3000` guard
+   (§2.5). Pure Python, no dependency, nothing shipped, **zero measured quality loss** — and it
+   takes a typical full-list turn from 3.81s to **0.05s**, worst case 43s → **4.6s**. This is the
+   single highest-value change available under the deployment constraints.
+3. **Ship the precomputed opener table** (§2.6). 2 KB, offline-generated, and it recovers the
+   discoverability deliberately traded away by blocking empty-history requests — the one real cost
+   of that design choice.
+4. **Fix the two invalid entries in `TOP_GLOBAL_OPENERS`** (§1.3) — `kares` and `peast` aren't in
+   `guesses.txt`, so if the `> 3000` guard ever activates on a larger list it would surface two
+   unusable words. The branch itself is deliberate and should stay.
 5. **Surface curated-list staleness** (§4.2) — a "last updated" date, or derive `answers.txt` from
    `full_answers.txt` minus a dated `used_words.txt`.
 6. Make `analyze.py` load lazily like `next_word.py` (§1.7).
+
+### ❌ Ruled out
+
+- **Precomputed pattern matrix** (§2.4) — blocked by Vercel file-size limits; already tested.
+- **Deleting the `> 3000` branch** — it's an intentional guard for larger test lists.
+- **Computing a best opening word on demand** — intentionally blocked in the UI; §2.6 solves the
+  underlying need offline instead.
 
 ### ⬜ Worthwhile
 
