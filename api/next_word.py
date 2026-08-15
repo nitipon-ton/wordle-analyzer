@@ -5,22 +5,24 @@ import os
 # Tiny global caches for text dictionaries
 GUESSES = None
 GUESSES_SET = None
-ANSWERS = None        # curated: recently-used Wordle answers removed
-FULL_ANSWERS = None   # every answer the official list has ever used
+ANSWERS = None          # curated: recently-used Wordle answers removed
+FULL_ANSWERS = None     # every answer the official list has ever used
+ANSWERS_UPDATED = None  # date answers.txt was last curated, from answers_meta.json
 LOAD_ERROR = None
 
-# Hardcoded global high-value openers to evaluate when the search space is wide
+# Hardcoded global high-value openers to evaluate when the search space is wide.
+# Every entry must be a real guess in guesses.txt (checked at import time below).
 TOP_GLOBAL_OPENERS = [
     "raise", "crane", "crate", "slate", "trace", "stare", "audio", "adieu", "salet", "roate", "raile",
-    "soare", "arise", "irate", "orate", "ariel", "arose", "raine", "artel", "taler", "ratel", 
+    "soare", "arise", "irate", "orate", "ariel", "arose", "raine", "artel", "taler", "ratel",
     "arles", "realo", "alter", "saner", "later", "snare", "oater", "taser", "tares", "fluke",
-    "alert", "reais", "kares", "groin", "chump", "prone", "flame", "gripe", "flair", "grace", 
-    "aesir", "carte", "tread", "reast", "peart", "peast", "roast", "pears", "store", "least"
+    "alert", "reais", "groin", "chump", "prone", "flame", "gripe", "flair", "grace",
+    "aesir", "carte", "tread", "reast", "peart", "roast", "pears", "store", "least"
 ]
 
 def init_words():
     """Load the raw text word lists into memory (takes <5ms)."""
-    global GUESSES, GUESSES_SET, ANSWERS, FULL_ANSWERS, LOAD_ERROR
+    global GUESSES, GUESSES_SET, ANSWERS, FULL_ANSWERS, ANSWERS_UPDATED, LOAD_ERROR
     if GUESSES is not None:
         return
     try:
@@ -41,6 +43,14 @@ def init_words():
             FULL_ANSWERS = read("full_answers.txt")
         except Exception:
             FULL_ANSWERS = ANSWERS
+
+        # Optional - date answers.txt was last curated. Update this file whenever
+        # answers.txt changes, so the UI can show how fresh the list is.
+        try:
+            with open(os.path.join(base_dir, "answers_meta.json")) as f:
+                ANSWERS_UPDATED = json.load(f).get("last_updated")
+        except Exception:
+            ANSWERS_UPDATED = None
     except Exception as e:
         LOAD_ERROR = str(e)
 
@@ -123,6 +133,18 @@ class handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self._cors()
         self.end_headers()
+
+    def do_GET(self):
+        # Cheap metadata only - no scoring - so the UI can show list freshness
+        # on page load without ever issuing the expensive empty-history request.
+        init_words()
+        if LOAD_ERROR:
+            self._json(500, {"error": f"Word lists failed to load: {LOAD_ERROR}"})
+            return
+        self._json(200, {
+            "answers_updated": ANSWERS_UPDATED,
+            "pool_sizes": {"recent": len(ANSWERS), "full": len(FULL_ANSWERS)}
+        })
 
     def do_POST(self):
         init_words()
@@ -207,7 +229,8 @@ class handler(BaseHTTPRequestHandler):
             "remaining_words": remaining_words,
             "top_guesses": top_guesses,
             "word_list": word_list,
-            "pool_size": len(answer_pool)
+            "pool_size": len(answer_pool),
+            "answers_updated": ANSWERS_UPDATED
         })
 
     def _cors(self):

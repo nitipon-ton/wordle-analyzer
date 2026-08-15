@@ -15,6 +15,7 @@ BASE_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 ANSWERS_PATH = os.path.join(BASE_DIR, "answers.txt")
 FULL_ANSWERS_PATH = os.path.join(BASE_DIR, "full_answers.txt")
 GUESSES_PATH = os.path.join(BASE_DIR, "guesses.txt")
+ANSWERS_META_PATH = os.path.join(BASE_DIR, "answers_meta.json")
 
 try:
     ANSWERS = load_words(ANSWERS_PATH)
@@ -31,6 +32,14 @@ try:
     FULL_ANSWERS = load_words(FULL_ANSWERS_PATH)
 except Exception:
     FULL_ANSWERS = ANSWERS
+
+# Optional - date answers.txt was last curated. Update this file whenever
+# answers.txt changes, so the UI can show how fresh the list is.
+try:
+    with open(ANSWERS_META_PATH) as f:
+        ANSWERS_UPDATED = json.load(f).get("last_updated")
+except Exception:
+    ANSWERS_UPDATED = None
 
 
 def pick_answer_pool(word_list):
@@ -151,6 +160,7 @@ class handler(BaseHTTPRequestHandler):
         result = analyze(words, pick_answer_pool(word_list))
         result["words"] = words
         result["word_list"] = word_list
+        result["answers_updated"] = ANSWERS_UPDATED
         self._json(200, result)
 
     def _cors(self):

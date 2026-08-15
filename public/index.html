@@ -630,6 +630,41 @@
             'including words already used. Slower, and the better choice for theory.'
   };
 
+  // Date the curated list (data/answers.txt) was last hand-updated, fetched from
+  // the server on load. Only meaningful for the 'recent' pool - the full list
+  // never goes stale.
+  let answersUpdated = null;
+
+  function poolCaptionText(pool) {
+    let text = POOL_CAPTIONS[pool];
+    if (pool === 'recent' && answersUpdated) {
+      const d = new Date(answersUpdated + 'T00:00:00');
+      const formatted = isNaN(d) ? answersUpdated
+        : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+      text += ` List last updated ${formatted}.`;
+    }
+    return text;
+  }
+
+  function refreshPoolCaptions() {
+    document.getElementById('poolCaptionFinder').textContent = poolCaptionText(answerPool);
+    document.getElementById('poolCaptionAnalyzer').textContent = poolCaptionText(answerPool);
+  }
+
+  async function loadAnswersMeta() {
+    try {
+      const res = await fetch('/api/next_word');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.answers_updated) {
+        answersUpdated = data.answers_updated;
+        refreshPoolCaptions();
+      }
+    } catch (err) {
+      // Non-critical - the caption just won't show a date.
+    }
+  }
+
   function setAnswerPool(pool) {
     if (pool === answerPool) return;
     answerPool = pool;
@@ -637,8 +672,8 @@
     ['Finder', 'Analyzer'].forEach(tab => {
       document.getElementById(`poolRecent${tab}`).classList.toggle('active', pool === 'recent');
       document.getElementById(`poolFull${tab}`).classList.toggle('active', pool === 'full');
-      document.getElementById(`poolCaption${tab}`).textContent = POOL_CAPTIONS[pool];
     });
+    refreshPoolCaptions();
 
     // Results came from the other pool, so they no longer describe anything on screen.
     document.getElementById('finderResults').style.display = 'none';
@@ -659,8 +694,8 @@
     setupFinderInputTiles();
     renderRows();
     updateUndoButton();
-    document.getElementById('poolCaptionFinder').textContent = POOL_CAPTIONS[answerPool];
-    document.getElementById('poolCaptionAnalyzer').textContent = POOL_CAPTIONS[answerPool];
+    refreshPoolCaptions();
+    loadAnswersMeta();
     focusFirstFinderTile();
   }
 

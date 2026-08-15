@@ -69,10 +69,12 @@ lower only because 688 words is an easier pool — not because the algorithm is 
   the top item here.
 - **A precomputed pattern matrix would be even faster, but doesn't fit.** Vercel's file-size limit
   rejects it — already tried.
-- **Curated list has no staleness indicator.** If it's not updated for a while, the bot can
-  recommend words Wordle already used. Worth showing a "last updated" date.
-- **`TOP_GLOBAL_OPENERS`** (used only if the `>3000` branch fires) has two words not in
-  `guesses.txt`: `kares`, `peast`. Fix if that branch ever gets used.
+- ✅ **Done: curated-list staleness date.** `data/answers_meta.json` holds a `last_updated` date,
+  updated whenever `answers.txt` changes. The UI fetches it via a cheap `GET /api/next_word` on
+  load (no scoring — just file reads) and shows "List last updated Aug 15, 2026" under the pool
+  toggle when on the curated list.
+- ✅ **Done: fixed `TOP_GLOBAL_OPENERS`.** Removed `kares` and `peast` — neither is in
+  `guesses.txt`.
 - **`analyze.py` loads word lists at import time**, so a bad cold start fails every request until
   the container recycles. `next_word.py` retries lazily — `analyze.py` should match.
 - **No caching.** Same guess history + same pool always gives the same answer. An LRU cache or
