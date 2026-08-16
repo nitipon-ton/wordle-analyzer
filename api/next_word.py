@@ -167,6 +167,12 @@ class handler(BaseHTTPRequestHandler):
             self._json(400, {"error": error})
             return
 
+        # "Add word" only needs to know the guess is legal - skip the expensive
+        # scoring loop entirely so adding several guesses stays instant.
+        if data.get("validate_only"):
+            self._json(200, {"valid": True})
+            return
+
         word_list = data.get("word_list", "recent")
         if word_list not in ("recent", "full"):
             self._json(400, {"error": "word_list must be 'recent' or 'full'."})

@@ -334,6 +334,27 @@
     .analyze-btn:active { transform: scale(0.98); }
     .analyze-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
+    /* Secondary action sitting beside the primary green button */
+    .secondary-btn {
+      padding: 14px 20px;
+      background: none;
+      color: var(--text);
+      font-family: var(--font-display);
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border: 1px solid var(--muted);
+      border-radius: var(--radius);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: border-color 0.15s, background 0.15s, transform 0.1s;
+    }
+
+    .secondary-btn:hover  { border-color: var(--text); background: var(--surface); }
+    .secondary-btn:active { transform: scale(0.98); }
+    .secondary-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
     .error-msg {
       text-align: center;
       font-size: 0.85rem;
@@ -523,7 +544,8 @@
     </div>
 
     <div class="action-controls">
-      <button class="analyze-btn" id="btnSubmitFinder" onclick="submitFinderGuess()" style="width: 220px;">+ Add &amp; Analyze</button>
+      <button class="secondary-btn" id="btnAddFinder" onclick="addFinderGuess()">+ Add word</button>
+      <button class="analyze-btn" id="btnSubmitFinder" onclick="analyzeFinder()" style="width: 220px;">Analyze</button>
     </div>
 
     <div class="error-msg" id="finderErrorMsg"></div>
@@ -715,7 +737,7 @@
   function init() {
     setupFinderInputTiles();
     renderRows();
-    updateUndoButton();
+    updateFinderButtons();
     refreshPoolCaptions();
     loadAnswersMeta();
     focusFirstFinderTile();
@@ -821,7 +843,12 @@
         }
         if (e.key === 'ArrowRight' && i < 4) container.children[i + 1].focus();
         if (e.key === 'ArrowLeft'  && i > 0) container.children[i - 1].focus();
-        if (e.key === 'Enter') submitFinderGuess();
+        // Enter adds the word (the common case when entering several guesses);
+        // Ctrl/Cmd+Enter runs the analysis.
+        if (e.key === 'Enter') {
+          if (e.ctrlKey || e.metaKey) analyzeFinder();
+          else addFinderGuess();
+        }
       });
 
       input.addEventListener('click', e => {
@@ -837,32 +864,90 @@
     }
   }
 
-  async function submitFinderGuess() {
+  // Reads the tiles and checks the guess is usable. Returns the turn object,
+  // or null (with an error already shown) if it isn't.
+  function readCurrentFinderTurn(requireComplete) {
     const errEl = document.getElementById('finderErrorMsg');
-    errEl.textContent = '';
-    
     const container = document.getElementById('currentFinderTiles');
     let word = '';
     for (let i = 0; i < 5; i++) {
       word += container.children[i].value.toLowerCase();
     }
 
+    if (word.length === 0) {
+      if (requireComplete) errEl.textContent = 'Please enter a complete 5-letter word.';
+      return null;                       // empty tiles are not an error when analyzing
+    }
     if (word.length !== 5) {
       errEl.textContent = 'Please enter a complete 5-letter word.';
-      return;
+      return null;
     }
-
     if (finderHistory.some(h => h.word === word)) {
-      errEl.textContent = 'This word has already been verified in the play history.';
+      errEl.textContent = 'This word has already been added.';
+      return null;
+    }
+    return { word, pattern: [...currentFinderPattern] };
+  }
+
+  // "+ Add word" - stores the guess locally so several can be entered before
+  // paying for an analysis. Only does a cheap server-side dictionary check.
+  async function addFinderGuess() {
+    document.getElementById('finderErrorMsg').textContent = '';
+    const turn = readCurrentFinderTurn(true);
+    if (!turn) return;
+
+    if (!(await validateFinderTurn(turn))) return;
+
+    finderHistory.push(turn);
+    renderFinderHistoryElements();
+    setupFinderInputTiles();
+    focusFirstFinderTile();
+  }
+
+  // Cheap validation call - no scoring - so a typo is caught at entry time
+  // rather than after several more words have been added.
+  async function validateFinderTurn(turn) {
+    const errEl = document.getElementById('finderErrorMsg');
+    const btn = document.getElementById('btnAddFinder');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/next_word', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ history: [...finderHistory, turn], validate_only: true })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errEl.textContent = data.error || 'Could not validate that word.';
+        return false;
+      }
+      return true;
+    } catch (err) {
+      errEl.textContent = 'Network communication failure context.';
+      return false;
+    } finally {
+      btn.disabled = false;
+      updateFinderButtons();
+    }
+  }
+
+  // "Analyze" - scores everything added so far. A complete word still sitting in
+  // the tiles is folded in first, so typing a word and hitting Analyze works.
+  async function analyzeFinder() {
+    document.getElementById('finderErrorMsg').textContent = '';
+
+    const pending = readCurrentFinderTurn(false);
+    const history = pending ? [...finderHistory, pending] : [...finderHistory];
+
+    if (history.length === 0) {
+      document.getElementById('finderErrorMsg').textContent = 'Add at least one guess first.';
       return;
     }
 
-    const currentTurn = { word, pattern: [...currentFinderPattern] };
-
-    const data = await requestFinderAnalysis([...finderHistory, currentTurn], 'Calculating...');
+    const data = await requestFinderAnalysis(history, 'Calculating...');
     if (!data) return;
 
-    finderHistory.push(currentTurn);
+    finderHistory = history;
     renderFinderHistoryElements();
     renderFinderResultsDisplay(data);
 
@@ -870,16 +955,18 @@
     focusFirstFinderTile();
   }
 
-  // Shared fetch used by both "Add & Analyze" and "Remove last word".
+  // Shared fetch used by "Analyze", "Remove last word" and the pool toggle.
   // Returns the parsed payload, or null if the call failed (error already shown).
   async function requestFinderAnalysis(history, busyLabel) {
     const errEl = document.getElementById('finderErrorMsg');
     const btn = document.getElementById('btnSubmitFinder');
     const undo = document.getElementById('btnUndoFinder');
+    const add = document.getElementById('btnAddFinder');
     const label = btn.textContent;
 
     btn.disabled = true;
     undo.disabled = true;
+    add.disabled = true;
     btn.textContent = busyLabel;
 
     try {
@@ -899,8 +986,9 @@
       return null;
     } finally {
       btn.disabled = false;
+      add.disabled = false;
       btn.textContent = label;
-      updateUndoButton();
+      updateFinderButtons();
     }
   }
 
@@ -933,7 +1021,7 @@
     focusLastFinderTile();
   }
 
-  function updateUndoButton() {
+  function updateFinderButtons() {
     document.getElementById('btnUndoFinder').disabled = finderHistory.length === 0;
   }
 
@@ -941,7 +1029,7 @@
     const section = document.getElementById('finderHistorySection');
     const list = document.getElementById('finderHistoryList');
     list.innerHTML = '';
-    updateUndoButton();
+    updateFinderButtons();
 
     if (finderHistory.length === 0) {
       section.style.display = 'none';
