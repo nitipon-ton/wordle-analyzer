@@ -182,7 +182,6 @@ golly
 gonad
 gourd
 graze
-grill
 grope
 grunt
 guilt
@@ -250,7 +249,6 @@ mound
 mower
 mucus
 muddy
-murky
 musky
 newer
 ninny
@@ -291,7 +289,6 @@ plush
 poesy
 pooch
 pouch
-prawn
 pried
 pubic
 pudgy
@@ -420,7 +417,6 @@ steal
 steer
 stoke
 stoop
-strip
 stuck
 stunk
 suing
@@ -450,7 +446,6 @@ tonga
 torus
 tramp
 tread
-tribe
 tried
 truce
 truer
@@ -510,7 +505,6 @@ brake
 champ
 peach
 using
-trace
 vital
 sonic
 masse
@@ -684,5 +678,4 @@ humph
 sissy
 rebut
 cigar
-aspic
 runny
