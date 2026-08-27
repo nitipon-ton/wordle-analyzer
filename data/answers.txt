@@ -259,7 +259,6 @@ oaken
 obese
 octal
 odder
-olden
 ombre
 opium
 optic
@@ -456,7 +455,6 @@ tulle
 tumor
 twixt
 tying
-uncut
 unset
 unwed
 urine
@@ -548,7 +546,6 @@ pulpy
 altar
 great
 briar
-click
 gouge
 world
 erode
@@ -678,4 +675,8 @@ humph
 sissy
 rebut
 cigar
-runny
+beige
+intel
+remix
+soupy
+tween
