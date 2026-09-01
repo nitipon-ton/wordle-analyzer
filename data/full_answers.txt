@@ -119,6 +119,7 @@ askew
 aspic
 assay
 asset
+aster
 atoll
 atone
 attic
@@ -179,6 +180,7 @@ begat
 beget
 begin
 begun
+beige
 being
 belch
 belie
@@ -335,6 +337,7 @@ canny
 canoe
 canon
 caper
+capon
 caput
 carat
 cargo
@@ -1050,6 +1053,7 @@ inlay
 inlet
 inner
 input
+intel
 inter
 intro
 ionic
@@ -1152,6 +1156,7 @@ liner
 lingo
 lipid
 lithe
+liven
 liver
 livid
 llama
@@ -1591,6 +1596,7 @@ relax
 relay
 relic
 remit
+remix
 renal
 renew
 repay
@@ -1867,6 +1873,7 @@ sooth
 sooty
 sorry
 sound
+soupy
 south
 sower
 space
@@ -2163,6 +2170,7 @@ tutor
 twang
 tweak
 tweed
+tween
 tweet
 twice
 twine
