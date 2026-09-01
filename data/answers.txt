@@ -42,14 +42,12 @@ bless
 blind
 blitz
 bloat
-blood
 bluer
 bobby
 boney
 bosom
 botch
 boule
-bound
 bowel
 brawl
 brick
@@ -676,7 +674,4 @@ sissy
 rebut
 cigar
 beige
-intel
-remix
 soupy
-tween
